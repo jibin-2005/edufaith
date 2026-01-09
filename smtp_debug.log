@@ -1,0 +1,64 @@
+SMTP Init: jibinthomas1762005@gmail.com
+> EHLO Jibinz
+< 250-smtp.gmail.com at your service, [136.232.57.110]
+250-SIZE 35882577
+250-8BITMIME
+250-STARTTLS
+250-ENHANCEDSTATUSCODES
+250-PIPELINING
+250-CHUNKING
+250 SMTPUTF8
+
+> STARTTLS
+< 220 2.0.0 Ready to start TLS
+
+> EHLO Jibinz
+< 250-smtp.gmail.com at your service, [136.232.57.110]
+250-SIZE 35882577
+250-8BITMIME
+250-AUTH LOGIN PLAIN XOAUTH2 PLAIN-CLIENTTOKEN OAUTHBEARER XOAUTH
+250-ENHANCEDSTATUSCODES
+250-PIPELINING
+250-CHUNKING
+250 SMTPUTF8
+
+> AUTH LOGIN
+< 334 VXNlcm5hbWU6
+
+> amliaW50aG9tYXMxNzYyMDA1QGdtYWlsLmNvbQ==
+< 334 UGFzc3dvcmQ6
+
+> AUTH PASSWORD ***
+< 535-5.7.8 Username and Password not accepted. For more information, go to
+535 5.7.8  https://support.google.com/mail/?p=BadCredentials d9443c01a7336-2a2f3d4cb90sm451374695ad.51 - gsmtp
+
+> MAIL FROM: <jibinthomas1762005@gmail.com>
+< 530-5.7.0 Authentication Required. For more information, go to
+530 5.7.0  https://support.google.com/accounts/troubleshooter/2402620. d9443c01a7336-2a2f3d4cb90sm451374695ad.51 - gsmtp
+
+> RCPT TO: <jibinthomas1762005@gmail.com>
+< 530-5.7.0 Authentication Required. For more information, go to
+530 5.7.0  https://support.google.com/accounts/troubleshooter/2402620. d9443c01a7336-2a2f3d4cb90sm451374695ad.51 - gsmtp
+
+> DATA
+< 530-5.7.0 Authentication Required. For more information, go to
+530 5.7.0  https://support.google.com/accounts/troubleshooter/2402620. d9443c01a7336-2a2f3d4cb90sm451374695ad.51 - gsmtp
+
+> MIME-Version: 1.0
+Content-type: text/html; charset=utf-8
+From: Sunday School <jibinthomas1762005@gmail.com>
+To: jibinthomas1762005@gmail.com
+Subject: Password Reset - Sunday School Management
+
+<h2>Password Reset</h2>
+                    <p>Click the link below to reset your password:</p>
+                    <p><a href='http://localhost/Sunday School managment system/reset_password.php?token=6d37b866b3b72ec29ff38bd5c567234e'>http://localhost/Sunday School managment system/reset_password.php?token=6d37b866b3b72ec29ff38bd5c567234e</a></p>
+                    <p>Link expires in 1 hour.</p>
+.
+< 502-5.5.1 Unrecognized command. For more information, go to
+502 5.5.1  https://support.google.com/a/answer/3221692 d9443c01a7336-2a2f3d4cb90sm451374695ad.51 - gsmtp
+
+> QUIT
+< 502-5.5.1 Unrecognized command. For more information, go to
+502 5.5.1  https://support.google.com/a/answer/3221692 d9443c01a7336-2a2f3d4cb90sm451374695ad.51 - gsmtp
+
