@@ -7,6 +7,29 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'admin') {
 
 require 'db.php';
 
+// --- DELETE STUDENT ---
+if (isset($_GET['delete_id'])) {
+    $delete_id = intval($_GET['delete_id']);
+    
+    // Check if the user is indeed a student
+    $checkRole = $conn->prepare("SELECT role FROM users WHERE id = ?");
+    $checkRole->bind_param("i", $delete_id);
+    $checkRole->execute();
+    $roleResult = $checkRole->get_result();
+    
+    if ($roleResult->num_rows > 0) {
+        $userObj = $roleResult->fetch_assoc();
+        if ($userObj['role'] === 'student') {
+            $deleteStmt = $conn->prepare("DELETE FROM users WHERE id = ?");
+            $deleteStmt->bind_param("i", $delete_id);
+            if ($deleteStmt->execute()) {
+                header("Location: manage_students.php?msg=deleted");
+                exit;
+            }
+        }
+    }
+}
+
 // Fetch students
 $sql = "SELECT id, username, email FROM users WHERE role = 'student' ORDER BY username ASC";
 $result = $conn->query($sql);
@@ -68,10 +91,12 @@ $result = $conn->query($sql);
             </div>
         </div>
 
-        <?php if (isset($_GET['msg']) && $_GET['msg'] == 'success'): ?>
-            <div class="success-msg">
-                Student added successfully!
-            </div>
+        <?php if (isset($_GET['msg'])): ?>
+            <?php if ($_GET['msg'] == 'success'): ?>
+                <div class="success-msg">Student added successfully!</div>
+            <?php elseif ($_GET['msg'] == 'deleted'): ?>
+                <div class="success-msg" style="background:#f8d7da; color:#721c24;">Student deleted successfully!</div>
+            <?php endif; ?>
         <?php endif; ?>
 
         <div class="panel">
@@ -94,8 +119,10 @@ $result = $conn->query($sql);
                                 <td><?php echo htmlspecialchars($row['email']); ?></td>
                                 <td><span class="status present">Active</span></td>
                                 <td>
-                                    <i class="fa-solid fa-user-pen" style="color: #3498db; cursor: pointer; margin-right: 10px;"></i>
-                                    <i class="fa-solid fa-trash" style="color: #e74c3c; cursor: pointer;"></i>
+                                    <a href="edit_user.php?id=<?php echo $row['id']; ?>"><i class="fa-solid fa-user-pen" style="color: #3498db; cursor: pointer; margin-right: 15px;"></i></a>
+                                    <a href="manage_students.php?delete_id=<?php echo $row['id']; ?>" onclick="return confirm('Are you sure you want to delete this student?');">
+                                        <i class="fa-solid fa-trash" style="color: #e74c3c; cursor: pointer;"></i>
+                                    </a>
                                 </td>
                             </tr>
                         <?php endwhile; ?>

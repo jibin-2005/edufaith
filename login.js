@@ -3,19 +3,6 @@ import { signInWithEmailAndPassword, signInWithPopup } from "https://www.gstatic
 
 const loginForm = document.getElementById('loginForm');
 const customGoogleBtn = document.getElementById('customGoogleBtn');
-const loginMainTitle = document.getElementById('loginMainTitle');
-const loginSubtitle = document.getElementById('loginSubtitle');
-
-// --- GRACEFUL ROLE TITLES ---
-// Check URL for role parameter (e.g., login.html?role=admin)
-const urlParams = new URLSearchParams(window.location.search);
-const roleParam = urlParams.get('role');
-
-if (roleParam) {
-    const roleCapitalized = roleParam.charAt(0).toUpperCase() + roleParam.slice(1);
-    if (loginMainTitle) loginMainTitle.innerText = `${roleCapitalized} Login`;
-    if (loginSubtitle) loginSubtitle.innerText = `Access the ${roleCapitalized} Dashboard`;
-}
 
 // --- HYBRID AUTHENTICATION FLOW ---
 
