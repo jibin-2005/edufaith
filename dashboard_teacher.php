@@ -9,15 +9,7 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'teacher') {
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-<<<<<<< HEAD
-    <title>Teacher Portal | Sunday School</title>
-=======
-<<<<<<< HEAD
-    <title>Teacher Portal | Sunday School</title>
-=======
     <title>Teacher Portal | St. Thomas Church Kanamala</title>
->>>>>>> 85623df (Initial commit - Sunday School Management System)
->>>>>>> 7e1952f (09/01/2026)
     <link rel="stylesheet" href="dashboard.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
@@ -27,15 +19,7 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'teacher') {
     <div class="sidebar">
         <div class="logo">
             <i class="fa-solid fa-church"></i> 
-<<<<<<< HEAD
-            <span>Grace Valley</span>
-=======
-<<<<<<< HEAD
-            <span>Grace Valley</span>
-=======
-            <span>St. Thomas Church</span>
->>>>>>> 85623df (Initial commit - Sunday School Management System)
->>>>>>> 7e1952f (09/01/2026)
+            <span>St. Thomas Church Kanamala</span>
         </div>
         <ul class="menu">
             <li><a href="#" class="active"><i class="fa-solid fa-table-columns"></i> Dashboard</a></li>
@@ -53,20 +37,6 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'teacher') {
         
         <div class="top-bar">
             <div class="welcome-text">
-<<<<<<< HEAD
-=======
-<<<<<<< HEAD
->>>>>>> 7e1952f (09/01/2026)
-                <h2>Hello, Mrs. Thompson</h2>
-                <p>Grade 4 • Room 303</p>
-            </div>
-            <div class="user-profile">
-                <span>Mrs. Thompson</span>
-                <div class="user-img">
-                    <img src="https://ui-avatars.com/api/?name=Mrs+Thompson&background=random" alt="Teacher">
-<<<<<<< HEAD
-=======
-=======
                 <h2>Hello, <?php echo htmlspecialchars($_SESSION['username']); ?></h2>
                 <p>Grade 4 • Room 303</p>
             </div>
@@ -74,8 +44,6 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'teacher') {
                 <span><?php echo htmlspecialchars($_SESSION['username']); ?></span>
                 <div class="user-img">
                     <img src="https://ui-avatars.com/api/?name=<?php echo urlencode($_SESSION['username']); ?>&background=random" alt="Teacher">
->>>>>>> 85623df (Initial commit - Sunday School Management System)
->>>>>>> 7e1952f (09/01/2026)
                 </div>
             </div>
         </div>

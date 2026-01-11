@@ -30,7 +30,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         $update_stmt->execute();
 
         // 4. Send Email (Link contains the CLEAN token, not the hash)
-        // Construct the link
+        // konstrukt the link
         $protocol = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? "https" : "http";
         // Assuming the file is in the same directory
         $path = dirname($_SERVER['PHP_SELF']); 
@@ -41,9 +41,16 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         // --- SMTP EMAIL SENDING ---
         require 'SimpleSMTP.php';
         
-        // TODO: REPLACE THESE WITH YOUR REAL GMAIL
         $my_email = 'jibinthomas1762005@gmail.com'; 
         $my_app_password = 'YOUR_APP_PASSWORD_HERE'; // 16-char App Password
+
+        if ($my_app_password === 'YOUR_APP_PASSWORD_HERE') {
+            echo "<script>
+                    alert('CRITICAL: SMTP App Password is not set in send_reset.php line 46. Email cannot be sent.\\n\\nHowever, for testing, here is your reset link:\\n' + '$reset_link');
+                    window.location.href = '$reset_link';
+                  </script>";
+            exit;
+        }
 
         $smtp = new SimpleSMTP($my_email, $my_app_password);
 
@@ -63,7 +70,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         } else {
              // Fallback for debugging if credentials fail
              echo "<script>
-                    alert('SMTP Failed (Check Login Details). but here is the link for testing:\\n' + '$reset_link');
+                    alert('SMTP Failed. This usually means the App Password is incorrect or Google blocked the connection.\\n\\nTesting Link:\\n' + '$reset_link');
                     window.location.href = '$reset_link';
                   </script>";
         }

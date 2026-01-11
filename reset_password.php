@@ -68,7 +68,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Reset Password | Sunday School</title>
+    <title>Reset Password | St. Thomas Church Kanamala</title>
     <link rel="stylesheet" href="login.css">
     <style>
         .right-panel { justify-content: center; }

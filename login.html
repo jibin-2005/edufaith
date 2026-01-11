@@ -3,16 +3,10 @@
 
 <head>
     <meta charset="UTF-8">
-<<<<<<< HEAD
-    <title>Login | Sunday School</title>
-=======
-<<<<<<< HEAD
-    <title>Login | Sunday School</title>
-=======
     <title>Login | St. Thomas Church Kanamala</title>
->>>>>>> 85623df (Initial commit - Sunday School Management System)
->>>>>>> 7e1952f (09/01/2026)
     <link rel="stylesheet" href="login.css">
+    <!-- FontAwesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 
 <body>
@@ -29,123 +23,51 @@
         <!-- LEFT PANEL -->
         <div class="left-panel">
             <div class="overlay">
-<<<<<<< HEAD
                 <h1>Faith & Learning</h1>
                 <p>“Teach me your way, O Lord, that I may walk in your truth.”<br>— Psalm 86:11</p>
-=======
-<<<<<<< HEAD
-                <h1>Faith & Learning</h1>
-                <p>“Teach me your way, O Lord, that I may walk in your truth.”<br>— Psalm 86:11</p>
-=======
-                <h1>St. Thomas Church</h1>
-                <h2 style="font-size: 1.5rem; opacity: 0.9;">Kanamala</h2>
-                <p style="margin-top: 20px;">“Teach me your way, O Lord, that I may walk in your truth.”<br>— Psalm
-                    86:11</p>
->>>>>>> 85623df (Initial commit - Sunday School Management System)
->>>>>>> 7e1952f (09/01/2026)
             </div>
         </div>
 
         <!-- RIGHT PANEL -->
         <div class="right-panel">
-<<<<<<< HEAD
-=======
-<<<<<<< HEAD
->>>>>>> 7e1952f (09/01/2026)
-            <h2>Sign In</h2>
-            <p class="subtitle">Please select your role</p>
-
-            <!-- ROLE SELECTION -->
-            <div class="roles">
-                <div class="role active" data-role="student">Student / Parent</div>
-                <div class="role" data-role="teacher">Teacher</div>
-                <div class="role" data-role="admin">Admin</div>
-            </div>
-
-            <!-- LOGIN FORM -->
-            <form method="post" action="login_process.php">
-<<<<<<< HEAD
-=======
-=======
-            <!-- DYNAMIC TITLE -->
-            <div id="loginTitleArea">
+            <div class="login-wrapper">
                 <h2 id="loginMainTitle">Sign In</h2>
-                <p id="loginSubtitle" class="subtitle">Welcome to the Church Portal</p>
-            </div>
+                <p id="loginSubtitle" class="subtitle">Access your account to continue</p>
 
-            <!-- LOGIN FORM -->
-            <form id="loginForm" method="post" action="login_process.php">
->>>>>>> 85623df (Initial commit - Sunday School Management System)
->>>>>>> 7e1952f (09/01/2026)
-                <input type="hidden" name="role" id="selectedRole" value="student">
+                <!-- LOGIN FORM -->
+                <form id="loginForm" method="post" action="login_process.php">
 
-                <label>Email</label>
-                <input type="email" name="email" placeholder="Type your email" required>
+                    <div class="input-group">
+                        <label>Email</label>
+                        <input type="email" name="email" placeholder="Type your email" required>
+                    </div>
 
-                <label>Password</label>
-                <input type="password" name="password" placeholder="Type your password" required>
+                    <div class="input-group">
+                        <label>Password</label>
+                        <input type="password" name="password" placeholder="Type your password" required>
+                    </div>
 
-                <div style="text-align: right; margin-bottom: 15px;">
-                    <a href="forgot_password.html" class="forgot" style="font-size: 12px; color: #777;">Forgot
-                        Password?</a>
+                    <div class="form-footer">
+                        <a href="forgot_password.html" class="forgot">Forgot Password?</a>
+                    </div>
+
+                    <button type="submit">Login</button>
+                </form>
+
+                <div class="divider"><span>OR</span></div>
+
+                <div id="googleBtn" class="google-btn-container">
+                    <button type="button" id="customGoogleBtn" class="google-btn">
+                        <img src="https://img.icons8.com/color/48/google-logo.png" width="20">
+                        <span>Sign in with Google</span>
+                    </button>
                 </div>
-
-                <button type="submit">Login</button>
-            </form>
-
-            <!-- GOOGLE LOGIN -->
-            <div class="divider" style="margin: 5px 0; font-size: 12px;">OR</div>
-
-            <div id="googleBtn" class="google-btn-container" style="margin-top: 0;">
-                <button type="button" id="customGoogleBtn" style="
-                    width: 100%; 
-                    padding: 8px; 
-                    display: flex; 
-                    align-items: center; 
-                    justify-content: center; 
-                    gap: 8px; 
-                    background: white; 
-                    border: 1px solid #ccc; 
-                    border-radius: 4px; 
-<<<<<<< HEAD
-=======
-<<<<<<< HEAD
->>>>>>> 7e1952f (09/01/2026)
-                    cursor: pointer; 
-                    font-weight: 500;
-                    margin-top: 2px; /* Minimal gap */
-                    font-size: 14px;
-                    ">
-                    <img src="https://img.icons8.com/color/48/google-logo.png" width="18">
-                    Sign in with Google
-<<<<<<< HEAD
-=======
-=======
-                    color: black !important;
-                    cursor: pointer; 
-                    font-weight: 500;
-                    margin-top: 2px;
-                    font-size: 14px;
-                    ">
-                    <img src="https://img.icons8.com/color/48/google-logo.png" width="18">
-                    <span style="color: black;">Sign in with Google</span>
->>>>>>> 85623df (Initial commit - Sunday School Management System)
->>>>>>> 7e1952f (09/01/2026)
-                </button>
             </div>
         </div>
 
     </div>
     <script src="https://accounts.google.com/gsi/client" async defer></script>
-<<<<<<< HEAD
-    <script type="module" src="login.js?v=4"></script>
-=======
-<<<<<<< HEAD
-    <script type="module" src="login.js?v=4"></script>
-=======
     <script type="module" src="login.js?v=7"></script>
->>>>>>> 85623df (Initial commit - Sunday School Management System)
->>>>>>> 7e1952f (09/01/2026)
 
 </body>
 

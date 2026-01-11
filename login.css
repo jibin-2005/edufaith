@@ -14,16 +14,8 @@
     width: 100%;
     height: 100%;
     object-fit: cover;
-<<<<<<< HEAD
-    z-index: -2; /* behind everything */
-=======
-<<<<<<< HEAD
-    z-index: -2; /* behind everything */
-=======
     z-index: -2;
     /* behind everything */
->>>>>>> 85623df (Initial commit - Sunday School Management System)
->>>>>>> 7e1952f (09/01/2026)
 }
 
 /* Optional dark overlay for readability */
@@ -34,16 +26,8 @@ body::before {
     left: 0;
     width: 100%;
     height: 100%;
-<<<<<<< HEAD
-    background: rgba(0, 0, 0, 0.4); /* adjust darkness */
-=======
-<<<<<<< HEAD
-    background: rgba(0, 0, 0, 0.4); /* adjust darkness */
-=======
     background: rgba(0, 0, 0, 0.4);
     /* adjust darkness */
->>>>>>> 85623df (Initial commit - Sunday School Management System)
->>>>>>> 7e1952f (09/01/2026)
     z-index: -1;
 }
 
@@ -62,24 +46,11 @@ body {
     display: flex;
     border-radius: 10px;
     overflow: hidden;
-<<<<<<< HEAD
-=======
-<<<<<<< HEAD
->>>>>>> 7e1952f (09/01/2026)
-    box-shadow: 0 10px 30px rgba(0,0,0,0.3);
-    position: relative;
-    z-index: 1;
-    background: rgba(255, 255, 255, 0.85); /* semi-transparent to see video */
-<<<<<<< HEAD
-=======
-=======
     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
     position: relative;
     z-index: 1;
     background: rgba(255, 255, 255, 0.85);
     /* semi-transparent to see video */
->>>>>>> 85623df (Initial commit - Sunday School Management System)
->>>>>>> 7e1952f (09/01/2026)
 }
 
 /* LEFT PANEL */
@@ -114,10 +85,20 @@ body {
     padding: 40px;
     display: flex;
     flex-direction: column;
+    justify-content: center;
+    background: white;
+}
+
+.login-wrapper {
+    width: 100%;
+    max-width: 400px;
+    margin: 0 auto;
 }
 
 .right-panel h2 {
-    font-size: 26px;
+    font-size: 28px;
+    color: #2c3e50;
+    font-weight: 700;
 }
 
 .subtitle {
@@ -125,89 +106,124 @@ body {
     margin: 10px 0 20px;
 }
 
-/* Roles */
-.roles {
-    display: flex;
-    gap: 10px;
-    margin-bottom: 25px;
-}
-
-.role {
-    flex: 1;
-    padding: 10px;
-    border: 1px solid #ccc;
-    text-align: center;
-    cursor: pointer;
-    border-radius: 5px;
+/* Subtitle */
+.subtitle {
+    color: #777;
+    margin: 5px 0 25px;
     font-size: 14px;
-}
-
-.role.active {
-    border-color: #2ecc71;
-    color: #2ecc71;
-    font-weight: bold;
 }
 
 /* Form */
+.input-group {
+    margin-bottom: 15px;
+}
+
 label {
-    font-size: 14px;
-    margin-top: 10px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #666;
+    margin-bottom: 6px;
     display: block;
 }
 
 input {
     width: 100%;
-    padding: 10px;
-    margin-top: 5px;
-    border: 1px solid #ccc;
-    border-radius: 5px;
+    padding: 12px 15px;
+    border: 2px solid #eee;
+    border-radius: 8px;
+    font-size: 15px;
+    transition: all 0.3s ease;
+    background: #fafafa;
+}
+
+input:focus {
+    outline: none;
+    border-color: #2ecc71;
+    background: white;
+    box-shadow: 0 0 0 4px rgba(46, 204, 113, 0.1);
 }
 
 button {
     width: 100%;
-    margin-top: 20px;
-    padding: 12px;
+    margin-top: 10px;
+    padding: 14px;
     background: #2ecc71;
     color: white;
     border: none;
-    border-radius: 5px;
+    border-radius: 8px;
     font-size: 16px;
+    font-weight: 600;
     cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 12px rgba(46, 204, 113, 0.2);
 }
 
 button:hover {
     background: #27ae60;
+    transform: translateY(-1px);
+    box-shadow: 0 6px 15px rgba(46, 204, 113, 0.3);
 }
 
 /* Google login */
 .divider {
+    display: flex;
+    align-items: center;
     text-align: center;
-    margin: 15px 0;
-    color: #777;
+    margin: 20px 0;
+    color: #bbb;
+}
+
+.divider::before,
+.divider::after {
+    content: '';
+    flex: 1;
+    border-bottom: 1px solid #eee;
+}
+
+.divider span {
+    padding: 0 10px;
+    font-size: 12px;
+    font-weight: 600;
 }
 
 .google-btn {
     width: 100%;
-    padding: 10px;
-    background: rgb(42, 68, 42);
-    border: 1px solid #ccc;
-    border-radius: 5px;
+    padding: 14px;
+    background: white;
+    border: 1px solid #dadce0;
+    border-radius: 8px;
     cursor: pointer;
-    font-weight: bold;
+    font-size: 15px;
+    font-weight: 600;
+    color: #3c4043;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    transition: all 0.2s ease;
+    box-shadow: 0 1px 2px rgba(60, 64, 67, 0.1);
 }
 
-.google-btn img {
-    vertical-align: middle;
-    margin-right: 5px;
+.google-btn:hover {
+    background: #f8f9fa;
+    border-color: #d2e3fc;
+    box-shadow: 0 1px 3px rgba(60, 64, 67, 0.2);
+}
+
+.form-footer {
+    text-align: right;
+    margin-bottom: 15px;
 }
 
 .forgot {
-    display: block;
-    text-align: center;
-    margin-top: 11px;
-    font-size: 14px;
-    color: #2ecc71;
+    font-size: 13px;
+    color: #999;
     text-decoration: none;
+    transition: color 0.3s ease;
+}
+
+.forgot:hover {
+    color: #2ecc71;
 }
 
 
@@ -222,41 +238,17 @@ button:hover {
 
 /* Overlay stays on top */
 .overlay {
-<<<<<<< HEAD
-    position: absolute;       /* absolute inside left-panel */
-=======
-<<<<<<< HEAD
-    position: absolute;       /* absolute inside left-panel */
-=======
     position: absolute;
     /* absolute inside left-panel */
->>>>>>> 85623df (Initial commit - Sunday School Management System)
->>>>>>> 7e1952f (09/01/2026)
     top: 0;
     left: 0;
     width: 100%;
     height: 100%;
-<<<<<<< HEAD
-    background: rgba(85, 105, 98, 0.5); /* semi-transparent overlay */
-=======
-<<<<<<< HEAD
-    background: rgba(85, 105, 98, 0.5); /* semi-transparent overlay */
-=======
     background: rgba(85, 105, 98, 0.5);
     /* semi-transparent overlay */
->>>>>>> 85623df (Initial commit - Sunday School Management System)
->>>>>>> 7e1952f (09/01/2026)
     color: white;
     padding: 60px;
     display: flex;
     flex-direction: column;
     justify-content: center;
-<<<<<<< HEAD
 }
-=======
-<<<<<<< HEAD
-}
-=======
-}
->>>>>>> 85623df (Initial commit - Sunday School Management System)
->>>>>>> 7e1952f (09/01/2026)

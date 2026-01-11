@@ -9,15 +9,7 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'student') {
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-<<<<<<< HEAD
-    <title>Student Portal | Sunday School</title>
-=======
-<<<<<<< HEAD
-    <title>Student Portal | Sunday School</title>
-=======
     <title>Student Portal | St. Thomas Church Kanamala</title>
->>>>>>> 85623df (Initial commit - Sunday School Management System)
->>>>>>> 7e1952f (09/01/2026)
     <link rel="stylesheet" href="dashboard.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
@@ -27,15 +19,7 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'student') {
     <div class="sidebar">
         <div class="logo">
             <i class="fa-solid fa-church"></i> 
-<<<<<<< HEAD
-            <span>Grace Valley</span>
-=======
-<<<<<<< HEAD
-            <span>Grace Valley</span>
-=======
-            <span>St. Thomas Church</span>
->>>>>>> 85623df (Initial commit - Sunday School Management System)
->>>>>>> 7e1952f (09/01/2026)
+            <span>St. Thomas Church Kanamala</span>
         </div>
         <ul class="menu">
             <li><a href="#" class="active"><i class="fa-solid fa-table-columns"></i> Dashboard</a></li>
@@ -53,20 +37,6 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'student') {
         
         <div class="top-bar">
             <div class="welcome-text">
-<<<<<<< HEAD
-=======
-<<<<<<< HEAD
->>>>>>> 7e1952f (09/01/2026)
-                <h2>Welcome back, Sarah</h2>
-                <p>“Thy word is a lamp unto my feet.” — Psalm 119:105</p>
-            </div>
-            <div class="user-profile">
-                <span>Sarah Miller</span>
-                <div class="user-img">
-                    <img src="https://ui-avatars.com/api/?name=Sarah+Miller&background=random" alt="Student">
-<<<<<<< HEAD
-=======
-=======
                 <h2>Welcome back, <?php echo htmlspecialchars($_SESSION['username']); ?></h2>
                 <p>“Thy word is a lamp unto my feet.” — Psalm 119:105</p>
             </div>
@@ -74,8 +44,6 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'student') {
                 <span><?php echo htmlspecialchars($_SESSION['username']); ?></span>
                 <div class="user-img">
                     <img src="https://ui-avatars.com/api/?name=<?php echo urlencode($_SESSION['username']); ?>&background=random" alt="Student">
->>>>>>> 85623df (Initial commit - Sunday School Management System)
->>>>>>> 7e1952f (09/01/2026)
                 </div>
             </div>
         </div>

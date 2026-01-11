@@ -1,0 +1,29 @@
+[
+    {
+        "id": "1",
+        "username": "Jibin Thomas",
+        "email": "jibinthomas1762005@gmail.com",
+        "password": "$2y$10$kzDN6.ORZLycxmAQPCMDpeiJ60a2w.L4SyN79h44Zu4AvfBqshTWq",
+        "role": "admin",
+        "reset_token_hash": null,
+        "reset_token_expires_at": null
+    },
+    {
+        "id": "13",
+        "username": "precious binoy",
+        "email": "preciousbinoy2028@mca.ajce.in",
+        "password": "$2y$10$4zH.Z78KqpT5grHuI2mNZO35kjKXqS3hFDGzaTaBZOFPg\/CXAahCq",
+        "role": "teacher",
+        "reset_token_hash": null,
+        "reset_token_expires_at": null
+    },
+    {
+        "id": "14",
+        "username": "abel mathew",
+        "email": "abelmathew2028@mca.ajce.in",
+        "password": "$2y$10$wQpvrjlCL41BklsHKYQUEe6dUnQsDXYc7XwUljLvXcrV7Uq06E49y",
+        "role": "student",
+        "reset_token_hash": null,
+        "reset_token_expires_at": null
+    }
+]

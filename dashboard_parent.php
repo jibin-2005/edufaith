@@ -9,7 +9,7 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'parent') {
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Parent Portal | Sunday School</title>
+    <title>Parent Portal | St. Thomas Church Kanamala</title>
     <link rel="stylesheet" href="dashboard.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
@@ -19,7 +19,7 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'parent') {
     <div class="sidebar">
         <div class="logo">
             <i class="fa-solid fa-church"></i> 
-            <span>Grace Valley</span>
+            <span>St. Thomas Church Kanamala</span>
         </div>
         <ul class="menu">
             <li><a href="#" class="active"><i class="fa-solid fa-table-columns"></i> Dashboard</a></li>
@@ -37,20 +37,6 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'parent') {
         
         <div class="top-bar">
             <div class="welcome-text">
-<<<<<<< HEAD
-=======
-<<<<<<< HEAD
->>>>>>> 7e1952f (09/01/2026)
-                <h2>Welcome, Mr. & Mrs. Johnson</h2>
-                <p>Tracking your children's spiritual growth.</p>
-            </div>
-            <div class="user-profile">
-                <span>The Johnsons</span>
-                <div class="user-img">
-                    <img src="https://ui-avatars.com/api/?name=Johnson+Family&background=random" alt="Parent">
-<<<<<<< HEAD
-=======
-=======
                 <h2>Welcome, <?php echo htmlspecialchars($_SESSION['username']); ?></h2>
                 <p>Tracking your children's spiritual growth.</p>
             </div>
@@ -58,8 +44,6 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'parent') {
                 <span><?php echo htmlspecialchars($_SESSION['username']); ?></span>
                 <div class="user-img">
                     <img src="https://ui-avatars.com/api/?name=<?php echo urlencode($_SESSION['username']); ?>&background=random" alt="Parent">
->>>>>>> 85623df (Initial commit - Sunday School Management System)
->>>>>>> 7e1952f (09/01/2026)
                 </div>
             </div>
         </div>

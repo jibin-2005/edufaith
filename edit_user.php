@@ -66,7 +66,7 @@ $stmt->close();
     <div class="sidebar">
         <div class="logo">
             <i class="fa-solid fa-church"></i> 
-            <span>St. Thomas Church</span>
+            <span>St. Thomas Church Kanamala</span>
         </div>
         <ul class="menu">
             <li><a href="dashboard_admin.php"><i class="fa-solid fa-table-columns"></i> Dashboard</a></li>
