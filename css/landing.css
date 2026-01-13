@@ -1,0 +1,106 @@
+ * {
+     margin: 0;
+     padding: 0;
+     box-sizing: border-box;
+     font-family: 'Segoe UI', sans-serif;
+ }
+
+ /* HERO */
+ .hero {
+     height: 100vh;
+     background: url('../assets/images/IMG-20250403-WA0036.jpg') center/cover no-repeat;
+ }
+
+ .overlay {
+     background: rgba(87, 107, 87, 0.7);
+     height: 100%;
+     display: flex;
+     justify-content: center;
+     align-items: center;
+ }
+
+ .content {
+     text-align: center;
+     color: white;
+     padding: 20px;
+     max-width: 600px;
+ }
+
+ .logo {
+     width: 90px;
+     margin-bottom: 20px;
+ }
+
+ .content h1 {
+     font-size: 38px;
+     margin-bottom: 15px;
+ }
+
+ .content p {
+     font-size: 16px;
+     line-height: 1.6;
+     margin-bottom: 25px;
+ }
+
+ .btn {
+     padding: 14px 35px;
+     background: white;
+     color: #2e7d32;
+     text-decoration: none;
+     font-weight: bold;
+     border-radius: 6px;
+ }
+
+ .btn:hover {
+     background: #f1f1f1;
+ }
+
+ /* FEATURES */
+ .features {
+     padding: 60px 20px;
+     text-align: center;
+     background: #f9f9f9;
+ }
+
+ .features h2 {
+     margin-bottom: 30px;
+ }
+
+ .feature-box {
+     display: flex;
+     justify-content: center;
+     gap: 20px;
+     flex-wrap: wrap;
+ }
+
+ .card {
+     background: white;
+     padding: 25px;
+     width: 220px;
+     border-radius: 8px;
+     box-shadow: 0 6px 15px rgba(0, 0, 0, 0.1);
+ }
+
+ /* ROLES */
+ .roles {
+     padding: 50px;
+     text-align: center;
+ }
+
+ .role-list span {
+     display: inline-block;
+     margin: 10px;
+     padding: 12px 25px;
+     background: #e8f5e9;
+     border-radius: 25px;
+     font-weight: bold;
+ }
+
+ /* FOOTER */
+ footer {
+     background: #1b1b1b;
+     color: white;
+     text-align: center;
+     padding: 15px;
+     font-size: 14px;
+ }

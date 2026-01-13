@@ -1,7 +1,7 @@
 <?php
 session_start();
 if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'admin') {
-    header("Location: login.html");
+    header("Location: ../login.html");
     exit;
 }
 
@@ -12,7 +12,7 @@ $role_override = isset($_GET['role']) ? $_GET['role'] : 'student';
 <head>
     <meta charset="UTF-8">
     <title>Add User | St. Thomas Church Kanamala</title>
-    <link rel="stylesheet" href="dashboard.css">
+    <link rel="stylesheet" href="../css/dashboard.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         .form-container { max-width: 500px; margin: 40px auto; background: white; padding: 30px; border-radius: 12px; box-shadow: 0 5px 15px rgba(0,0,0,0.05); }
@@ -35,7 +35,7 @@ $role_override = isset($_GET['role']) ? $_GET['role'] : 'student';
             <li><a href="manage_students.php"><i class="fa-solid fa-user-graduate"></i> Students</a></li>
         </ul>
         <div class="logout">
-            <a href="index.html"><i class="fa-solid fa-right-from-bracket"></i> Log Out</a>
+            <a href="../index.html"><i class="fa-solid fa-right-from-bracket"></i> Log Out</a>
         </div>
     </div>
 
@@ -82,6 +82,6 @@ $role_override = isset($_GET['role']) ? $_GET['role'] : 'student';
         </div>
     </div>
 
-    <script type="module" src="add_user_sync.js"></script>
+    <script type="module" src="../js/add_user_sync.js"></script>
 </body>
 </html>

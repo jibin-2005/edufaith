@@ -33,13 +33,23 @@ if (addForm) {
         try {
             // 1. Create in Firebase Auth
             console.log("Creating Firebase account...");
-            const userCredential = await createUserWithEmailAndPassword(secondaryAuth, email, password);
-            const user = userCredential.user;
-            console.log("Firebase account created:", user.uid);
-
-            // 2. We immediately sign out the NEW user in the secondary instance 
-            // so they don't accidentally become the active session for the admin
-            await signOut(secondaryAuth);
+            let firebaseUid = null;
+            try {
+                const userCredential = await createUserWithEmailAndPassword(secondaryAuth, email, password);
+                const user = userCredential.user;
+                firebaseUid = user.uid;
+                console.log("Firebase account created:", firebaseUid);
+                // Sign out new user
+                await signOut(secondaryAuth);
+            } catch (authError) {
+                if (authError.code === 'auth/email-already-in-use') {
+                    console.warn("User already exists in Firebase. Proceeding to sync with DB.");
+                    // We don't have the UID, but we can't get it without login. 
+                    // Since backend doesn't require UID for INSERT, we proceed.
+                } else {
+                    throw authError; // Rethrow other errors
+                }
+            }
 
             // 3. Send to MySQL via PHP
             submitBtn.innerText = "Saving to Database...";
@@ -48,9 +58,14 @@ if (addForm) {
             formData.append('email', email);
             formData.append('password', password); // We hash it in PHP
             formData.append('role', role);
-            formData.append('firebase_uid', user.uid);
+            if (firebaseUid) {
+                formData.append('firebase_uid', firebaseUid);
+            }
+            if (addForm.class_id && addForm.class_id.value) {
+                formData.append('class_id', addForm.class_id.value);
+            }
 
-            const response = await fetch('add_user_process.php', {
+            const response = await fetch('../includes/add_user_process.php', {
                 method: 'POST',
                 body: formData
             });

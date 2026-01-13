@@ -1,6 +1,6 @@
 <?php
 session_start();
-if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'admin') {
+if (!isset($_SESSION['user_id']) || !in_array($_SESSION['role'], ['admin', 'teacher'])) {
     header('HTTP/1.1 403 Forbidden');
     echo json_encode(['success' => false, 'message' => 'Unauthorized']);
     exit;
@@ -14,6 +14,12 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $email = $_POST['email'];
     $password = password_hash($_POST['password'], PASSWORD_DEFAULT);
     $role = $_POST['role'];
+
+    // Security Check: Teachers can ONLY add Students
+    if ($_SESSION['role'] === 'teacher' && $role !== 'student') {
+        echo json_encode(['success' => false, 'message' => 'Teachers can only add students.']);
+        exit;
+    }
     $firebase_uid = isset($_POST['firebase_uid']) ? $_POST['firebase_uid'] : null;
 
     // Check if email already exists in MySQL
@@ -27,11 +33,17 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         exit;
     }
 
-    $stmt = $conn->prepare("INSERT INTO users (username, email, password, role) VALUES (?, ?, ?, ?)");
-    $stmt->bind_param("ssss", $username, $email, $password, $role);
+    $stmt = $conn->prepare("INSERT INTO users (username, email, password, role, class_id) VALUES (?, ?, ?, ?, ?)");
+    $class_id = !empty($_POST['class_id']) ? $_POST['class_id'] : NULL;
+    $stmt->bind_param("ssssi", $username, $email, $password, $role, $class_id);
 
     if ($stmt->execute()) {
-        $redirect = ($role === 'teacher') ? 'manage_teachers.php?msg=success' : 'manage_students.php?msg=success';
+        if ($_SESSION['role'] === 'teacher') {
+            $redirect = 'my_class.php?msg=success';
+        } else {
+            // Admin Logic
+            $redirect = ($role === 'teacher') ? 'manage_teachers.php?msg=success' : 'manage_students.php?msg=success';
+        }
         echo json_encode(['success' => true, 'redirect' => $redirect]);
     } else {
         echo json_encode(['success' => false, 'message' => 'MySQL Error: ' . $stmt->error]);

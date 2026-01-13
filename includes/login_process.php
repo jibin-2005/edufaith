@@ -28,26 +28,26 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             // Redirect based on role
             switch ($db_role) {
                 case 'admin':
-                    header("Location: dashboard_admin.php");
+                    header("Location: ../admin/dashboard_admin.php");
                     break;
                 case 'teacher':
-                    header("Location: dashboard_teacher.php");
+                    header("Location: ../user/dashboard_teacher.php");
                     break;
                 case 'student':
-                    header("Location: dashboard_student.php");
+                    header("Location: ../user/dashboard_student.php");
                     break;
                 case 'parent':
-                    header("Location: dashboard_parent.php");
+                    header("Location: ../user/dashboard_parent.php");
                     break;
                 default:
-                    header("Location: index.html");
+                    header("Location: ../index.html");
             }
             exit;
         } else {
-            echo "<script>alert('Invalid Password'); window.location.href='login.html';</script>";
+            echo "<script>alert('Invalid Password'); window.location.href='../login.html';</script>";
         }
     } else {
-        echo "<script>alert('User not found'); window.location.href='login.html';</script>";
+        echo "<script>alert('User not found'); window.location.href='../login.html';</script>";
     }
 
     $stmt->close();

@@ -1,11 +1,11 @@
 <?php
 session_start();
 if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'admin') {
-    header("Location: login.html");
+    header("Location: ../login.html");
     exit;
 }
 
-require 'db.php';
+require '../includes/db.php';
 
 $message = "";
 $user_id = isset($_GET['id']) ? intval($_GET['id']) : 0;
@@ -20,9 +20,10 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $username = $_POST['fullname'];
     $email = $_POST['email'];
     $role = $_POST['role'];
+    $class_id = !empty($_POST['class_id']) ? $_POST['class_id'] : NULL;
 
-    $stmt = $conn->prepare("UPDATE users SET username = ?, email = ?, role = ? WHERE id = ?");
-    $stmt->bind_param("sssi", $username, $email, $role, $user_id);
+    $stmt = $conn->prepare("UPDATE users SET username = ?, email = ?, role = ?, class_id = ? WHERE id = ?");
+    $stmt->bind_param("sssii", $username, $email, $role, $class_id, $user_id);
 
     if ($stmt->execute()) {
         $message = "Success: User updated successfully.";
@@ -33,7 +34,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 }
 
 // Fetch current data
-$stmt = $conn->prepare("SELECT username, email, role FROM users WHERE id = ?");
+$stmt = $conn->prepare("SELECT username, email, role, class_id FROM users WHERE id = ?");
 $stmt->bind_param("i", $user_id);
 $stmt->execute();
 $result = $stmt->get_result();
@@ -49,7 +50,7 @@ $stmt->close();
 <head>
     <meta charset="UTF-8">
     <title>Edit User | St. Thomas Church Kanamala</title>
-    <link rel="stylesheet" href="dashboard.css">
+    <link rel="stylesheet" href="../css/dashboard.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         .form-container { max-width: 500px; margin: 40px auto; background: white; padding: 30px; border-radius: 12px; box-shadow: 0 5px 15px rgba(0,0,0,0.05); }
@@ -74,7 +75,7 @@ $stmt->close();
             <li><a href="manage_students.php" class="<?php echo ($user['role'] == 'student' ? 'active' : ''); ?>"><i class="fa-solid fa-user-graduate"></i> Students</a></li>
         </ul>
         <div class="logout">
-            <a href="index.html"><i class="fa-solid fa-right-from-bracket"></i> Log Out</a>
+            <a href="../index.html"><i class="fa-solid fa-right-from-bracket"></i> Log Out</a>
         </div>
     </div>
 
@@ -114,10 +115,41 @@ $stmt->close();
                     </select>
                 </div>
 
+                <div class="form-group" id="class-group" style="display:none;">
+                    <label>Assign Class (Optional)</label>
+                    <select name="class_id">
+                        <option value="">-- Select Class --</option>
+                        <?php
+                        $classes = $conn->query("SELECT id, class_name FROM classes ORDER BY class_name ASC");
+                        while($c = $classes->fetch_assoc()): ?>
+                            <option value="<?php echo $c['id']; ?>" <?php echo ($user['class_id'] == $c['id'] ? 'selected' : ''); ?>>
+                                <?php echo htmlspecialchars($c['class_name']); ?>
+                            </option>
+                        <?php endwhile; ?>
+                    </select>
+                </div>
+
                 <button type="submit" class="btn-submit">Update Details</button>
                 <p style="text-align:center; margin-top:15px; font-size:14px;"><a href="manage_<?php echo $user['role']; ?>s.php" style="color:#777;">Back to List</a></p>
             </form>
         </div>
+
+        <script>
+            // Show Class dropdown only if Role is Student
+            const roleSelect = document.querySelector('select[name="role"]');
+            const classGroup = document.getElementById('class-group');
+            
+            function toggleClassField() {
+                if(roleSelect.value === 'student') {
+                    classGroup.style.display = 'block';
+                } else {
+                    classGroup.style.display = 'none';
+                }
+            }
+            roleSelect.addEventListener('change', toggleClassField);
+            // Run on load
+            toggleClassField();
+        </script>
     </div>
 </body>
 </html>

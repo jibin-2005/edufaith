@@ -36,11 +36,11 @@ if ($result->num_rows === 1) {
     $_SESSION['auth_provider'] = 'firebase';
 
     // Determine Redirect
-    $redirect_url = 'dashboard_student.php'; // Default fallback
-    if ($role === 'admin') $redirect_url = 'dashboard_admin.php';
-    elseif ($role === 'teacher') $redirect_url = 'dashboard_teacher.php';
-    elseif ($role === 'student') $redirect_url = 'dashboard_student.php';
-    elseif ($role === 'parent') $redirect_url = 'dashboard_parent.php';
+    $redirect_url = 'user/dashboard_student.php'; // Default fallback
+    if ($role === 'admin') $redirect_url = 'admin/dashboard_admin.php';
+    elseif ($role === 'teacher') $redirect_url = 'user/dashboard_teacher.php';
+    elseif ($role === 'student') $redirect_url = 'user/dashboard_student.php';
+    elseif ($role === 'parent') $redirect_url = 'user/dashboard_parent.php';
 
     echo json_encode(['success' => true, 'redirect' => $redirect_url]);
 
@@ -62,7 +62,7 @@ if ($result->num_rows === 1) {
         $_SESSION['role'] = $defaultRole;
         $_SESSION['auth_provider'] = 'firebase';
 
-        echo json_encode(['success' => true, 'redirect' => 'dashboard_student.php', 'is_new' => true]);
+        echo json_encode(['success' => true, 'redirect' => 'user/dashboard_student.php', 'is_new' => true]);
     } else {
         echo json_encode(['success' => false, 'message' => 'Database Sync Error: ' . $conn->error]);
     }

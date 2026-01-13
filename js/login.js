@@ -14,7 +14,7 @@ async function bridgeToBackend(user) {
         const email = user.email;
 
         // Send to PHP to check MySQL and start Session
-        const response = await fetch('firebase_login.php', {
+        const response = await fetch('includes/firebase_login.php', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'

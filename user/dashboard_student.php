@@ -1,16 +1,18 @@
 <?php
 session_start();
 if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'student') {
-    header("Location: login.html");
+    header("Location: ../login.html");
     exit;
 }
+
+require '../includes/db.php';
 ?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <title>Student Portal | St. Thomas Church Kanamala</title>
-    <link rel="stylesheet" href="dashboard.css">
+    <link rel="stylesheet" href="../css/dashboard.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body>
@@ -22,13 +24,13 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'student') {
             <span>St. Thomas Church Kanamala</span>
         </div>
         <ul class="menu">
-            <li><a href="#" class="active"><i class="fa-solid fa-table-columns"></i> Dashboard</a></li>
-            <li><a href="#"><i class="fa-solid fa-book-bible"></i> My Lessons</a></li>
-            <li><a href="#"><i class="fa-solid fa-star"></i> Achievements</a></li>
-            <li><a href="#"><i class="fa-solid fa-calendar-check"></i> Calendar</a></li>
+            <li><a href="dashboard_student.php" class="active"><i class="fa-solid fa-table-columns"></i> Dashboard</a></li>
+            <li><a href="my_lessons.php"><i class="fa-solid fa-book-bible"></i> My Lessons</a></li>
+            <li><a href="achievements.php"><i class="fa-solid fa-star"></i> Achievements</a></li>
+            <li><a href="calendar.php"><i class="fa-solid fa-calendar-check"></i> Calendar</a></li>
         </ul>
         <div class="logout">
-            <a href="index.html"><i class="fa-solid fa-right-from-bracket"></i> Log Out</a>
+            <a href="../index.html"><i class="fa-solid fa-right-from-bracket"></i> Log Out</a>
         </div>
     </div>
 
@@ -76,30 +78,32 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'student') {
         <div class="section-grid">
             <div class="panel">
                 <div class="panel-header">
-                    <h3>Upcoming Classes</h3>
+                    <h3>Upcoming Events</h3>
                 </div>
                 <table>
                     <thead>
                         <tr>
-                            <th>Subject</th>
-                            <th>Teacher</th>
-                            <th>Time</th>
+                            <th>Event</th>
+                            <th>Date</th>
                             <th>Status</th>
                         </tr>
                     </thead>
                     <tbody>
-                        <tr>
-                            <td>Old Testament History</td>
-                            <td>Mrs. Thompson</td>
-                            <td>Sunday, 9:00 AM</td>
-                            <td><span class="status pending">Upcoming</span></td>
-                        </tr>
-                        <tr>
-                            <td>Choir Practice</td>
-                            <td>Mr. David</td>
-                            <td>Sunday, 10:30 AM</td>
-                            <td><span class="status pending">Upcoming</span></td>
-                        </tr>
+                        <?php
+                        $e_sql = "SELECT title, event_date FROM events WHERE event_date >= CURDATE() ORDER BY event_date ASC LIMIT 5";
+                        $e_res = $conn->query($e_sql);
+                        if ($e_res->num_rows > 0) {
+                            while($row = $e_res->fetch_assoc()) {
+                                echo "<tr>";
+                                echo "<td>" . htmlspecialchars($row['title']) . "</td>";
+                                echo "<td>" . date("M j, h:i A", strtotime($row['event_date'])) . "</td>";
+                                echo "<td><span class='status pending'>Upcoming</span></td>";
+                                echo "</tr>";
+                            }
+                        } else {
+                            echo "<tr><td colspan='3' style='text-align:center; color:#999;'>No upcoming events.</td></tr>";
+                        }
+                        ?>
                     </tbody>
                 </table>
             </div>
@@ -108,12 +112,47 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'student') {
                 <div class="panel-header">
                     <h3>My Badges</h3>
                 </div>
+                <!-- Static Badges (placeholder logic could be expanded) -->
                 <div style="display: flex; gap: 10px; flex-wrap: wrap;">
                     <i class="fa-solid fa-medal" style="font-size: 32px; color: gold;" title="Perfect Attendance"></i>
                     <i class="fa-solid fa-star" style="font-size: 32px; color: orange;" title="Verse Master"></i>
                     <i class="fa-solid fa-hands-praying" style="font-size: 32px; color: #3498db;" title="Helper"></i>
                 </div>
             </div>
+        </div>
+        
+        <!-- ASSIGNMENTS SECTION -->
+        <div class="panel" style="margin-top: 24px;">
+            <div class="panel-header">
+                <h3>Assignments Due</h3>
+            </div>
+            <table>
+                 <thead>
+                    <tr>
+                        <th>Title</th>
+                        <th>Grade</th>
+                        <th>Due Date</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php
+                    // Display assignments
+                    $a_sql = "SELECT title, target_grade, due_date FROM assignments WHERE due_date >= CURDATE() ORDER BY due_date ASC LIMIT 5";
+                    $a_res = $conn->query($a_sql);
+                    if ($a_res->num_rows > 0) {
+                        while($row = $a_res->fetch_assoc()) {
+                             echo "<tr>";
+                             echo "<td>" . htmlspecialchars($row['title']) . "</td>";
+                             echo "<td>" . htmlspecialchars($row['target_grade']) . "</td>";
+                             echo "<td><span style='color:red;'>" . date("M j", strtotime($row['due_date'])) . "</span></td>";
+                             echo "</tr>";
+                        }
+                    } else {
+                        echo "<tr><td colspan='3' style='text-align:center;'>No assignments due.</td></tr>";
+                    }
+                    ?>
+                </tbody>
+            </table>
         </div>
         
     </div>

@@ -231,7 +231,7 @@ button:hover {
     position: relative;
 
     /* Background image */
-    background: url('IMG-20250403-WA0036.jpg') center/cover no-repeat;
+    background: url('../assets/images/IMG-20250403-WA0036.jpg') center/cover no-repeat;
 }
 
 /* Overlay stays on top */

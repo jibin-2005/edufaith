@@ -1,5 +1,5 @@
 <?php
-require 'db.php';
+require 'includes/db.php';
 
 $token_valid = false;
 $error_msg = "";
@@ -69,7 +69,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 <head>
     <meta charset="UTF-8">
     <title>Reset Password | St. Thomas Church Kanamala</title>
-    <link rel="stylesheet" href="login.css">
+    <link rel="stylesheet" href="css/login.css">
     <style>
         .right-panel { justify-content: center; }
         .error { color: red; text-align: center; margin-bottom: 1em; }
@@ -78,7 +78,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 <body>
 
     <video autoplay muted loop class="video-bg">
-        <source src="aradyane+kingdom1.mp4" type="video/mp4">
+        <source src="assets/videos/aradyane+kingdom1.mp4" type="video/mp4">
         Your browser does not support the video tag.
     </video>
 
