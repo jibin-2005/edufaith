@@ -24,9 +24,11 @@ if ($check->num_rows === 0 || $check->fetch_assoc()['role'] !== 'student') {
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $username = $_POST['fullname'];
     $email = $_POST['email'];
-    // Teachers cannot change roles, so we only update name and email
-    $stmt = $conn->prepare("UPDATE users SET username = ?, email = ? WHERE id = ?");
-    $stmt->bind_param("ssi", $username, $email, $user_id);
+    $class_id = !empty($_POST['class_id']) ? $_POST['class_id'] : NULL;
+    
+    // Teachers can update name, email, and class
+    $stmt = $conn->prepare("UPDATE users SET username = ?, email = ?, class_id = ? WHERE id = ?");
+    $stmt->bind_param("ssii", $username, $email, $class_id, $user_id);
 
     if ($stmt->execute()) {
         $message = "Student details updated successfully.";
@@ -37,7 +39,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 }
 
 // Fetch current data
-$stmt = $conn->prepare("SELECT username, email FROM users WHERE id = ?");
+$stmt = $conn->prepare("SELECT username, email, class_id FROM users WHERE id = ?");
 $stmt->bind_param("i", $user_id);
 $stmt->execute();
 $result = $stmt->get_result();
@@ -97,6 +99,22 @@ $stmt->close();
                 <div class="form-group">
                     <label>Email Address</label>
                     <input type="email" name="email" value="<?php echo htmlspecialchars($user['email']); ?>" required>
+                </div>
+
+                <div class="form-group">
+                    <label>Class Assignment</label>
+                    <select name="class_id">
+                        <option value="">-- No Class --</option>
+                        <?php
+                        $classes = $conn->query("SELECT id, class_name FROM classes WHERE status = 'active' ORDER BY class_name ASC");
+                        while($c = $classes->fetch_assoc()):
+                            $selected = (isset($user['class_id']) && $user['class_id'] == $c['id']) ? 'selected' : '';
+                        ?>
+                            <option value="<?php echo $c['id']; ?>" <?php echo $selected; ?>>
+                                <?php echo htmlspecialchars($c['class_name']); ?>
+                            </option>
+                        <?php endwhile; ?>
+                    </select>
                 </div>
 
                 <div style="background:#fff3cd; color:#856404; padding:10px; border-radius:4px; margin-bottom:15px; font-size:13px;">

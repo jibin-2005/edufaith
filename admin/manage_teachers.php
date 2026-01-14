@@ -31,7 +31,12 @@ if (isset($_GET['delete_id'])) {
 }
 
 // Fetch teachers
-$sql = "SELECT id, username, email FROM users WHERE role = 'teacher' ORDER BY username ASC";
+// Fetch teachers with their assigned class
+$sql = "SELECT u.id, u.username, u.email, c.class_name 
+        FROM users u 
+        LEFT JOIN classes c ON c.teacher_id = u.id 
+        WHERE u.role = 'teacher' 
+        ORDER BY u.username ASC";
 $result = $conn->query($sql);
 ?>
 <!DOCTYPE html>
@@ -105,6 +110,7 @@ $result = $conn->query($sql);
                     <tr>
                         <th>Teacher ID</th>
                         <th>Name</th>
+                        <th>Assigned Class</th>
                         <th>Email</th>
                         <th>Action</th>
                     </tr>
@@ -115,6 +121,16 @@ $result = $conn->query($sql);
                             <tr>
                                 <td>#<?php echo $row['id']; ?></td>
                                 <td><?php echo htmlspecialchars($row['username']); ?></td>
+                                <td>
+                                    <?php if($row['class_name']): ?>
+                                        <span class="badge" style="background:#e8f4fc; color:#2c3e50; padding:4px 8px; border-radius:4px; font-size:12px;">
+                                            <?php echo htmlspecialchars($row['class_name']); ?>
+                                        </span>
+                                    <?php else: ?>
+                                        <span style="color:#aaa; font-style:italic;">None</span>
+                                    <?php endif; ?>
+                                    <a href="#" onclick="openAssignModal(<?php echo $row['id']; ?>, '<?php echo addslashes($row['username']); ?>')" style="font-size:12px; margin-left:5px; text-decoration:underline;">Change</a>
+                                </td>
                                 <td><?php echo htmlspecialchars($row['email']); ?></td>
                                 <td>
                                     <a href="edit_user.php?id=<?php echo $row['id']; ?>"><i class="fa-solid fa-user-pen" style="color: #3498db; cursor: pointer; margin-right: 15px;"></i></a>
@@ -132,6 +148,41 @@ $result = $conn->query($sql);
                 </tbody>
             </table>
         </div>
+        
+        <!-- Assign Class Modal -->
+        <div id="assignModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:1000;">
+            <div style="background:white; width:400px; margin:100px auto; padding:25px; border-radius:8px;">
+                <h3 style="margin-top:0;">Assign Class to <span id="assignTeacherName"></span></h3>
+                <form action="assign_class.php" method="POST">
+                    <input type="hidden" name="teacher_id" id="assignTeacherId">
+                    <div style="margin-bottom:20px;">
+                        <label style="display:block; margin-bottom:5px; font-weight:bold;">Select Class:</label>
+                        <select name="class_id" required style="width:100%; padding:10px; border-radius:4px; border:1px solid #ddd;">
+                            <option value="">-- Select Class --</option>
+                            <?php 
+                            // Fetch all classes again to populate dropdown
+                            $class_res = $conn->query("SELECT id, class_name FROM classes ORDER BY class_name ASC");
+                            while($c = $class_res->fetch_assoc()) {
+                                echo "<option value='".$c['id']."'>".htmlspecialchars($c['class_name'])."</option>";
+                            }
+                            ?>
+                        </select>
+                    </div>
+                    <div style="text-align:right;">
+                        <button type="button" onclick="document.getElementById('assignModal').style.display='none'" style="padding:10px 20px; background:#ccc; border:none; border-radius:4px; cursor:pointer; margin-right:10px;">Cancel</button>
+                        <button type="submit" style="padding:10px 20px; background:#2ecc71; color:white; border:none; border-radius:4px; cursor:pointer;">Assign</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <script>
+            function openAssignModal(id, name) {
+                document.getElementById('assignTeacherId').value = id;
+                document.getElementById('assignTeacherName').innerText = name;
+                document.getElementById('assignModal').style.display = 'block';
+            }
+        </script>
     </div>
 </body>
 </html>

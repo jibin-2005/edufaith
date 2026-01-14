@@ -21,6 +21,7 @@ async function bridgeToBackend(user) {
             },
             body: JSON.stringify({
                 email: email,
+                uid: user.uid,
                 token: token,
                 displayName: user.displayName || email.split('@')[0]
             })

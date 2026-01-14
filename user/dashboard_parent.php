@@ -6,156 +6,113 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'parent') {
 }
 require '../includes/db.php';
 
-// Mock -> Real: Fetch first linked child
-$child_id = 0;
-$child_name = "No Child Linked";
-$child_grade = "N/A";
+$parent_id = $_SESSION['user_id'];
 
-// Get linked child
-$link_sql = "SELECT s.id, s.username, c.class_name 
-             FROM parent_student ps 
-             JOIN users s ON ps.student_id = s.id 
-             LEFT JOIN classes c ON s.class_id = c.id
-             WHERE ps.parent_id = " . $_SESSION['user_id'] . " LIMIT 1";
-$link_res = $conn->query($link_sql);
+// Fetch Linked Children
+$sql = "SELECT u.id, u.username, u.email, u.class_id, 
+        (SELECT COUNT(*) FROM attendance a WHERE a.user_id = u.id AND a.status = 'present') as present_count,
+        (SELECT COUNT(*) FROM attendance a WHERE a.user_id = u.id) as total_attendance
+        FROM users u 
+        JOIN parent_student ps ON u.id = ps.student_id 
+        WHERE ps.parent_id = ?";
 
-if ($link_res->num_rows > 0) {
-    $child = $link_res->fetch_assoc();
-    $child_id = $child['id'];
-    $child_name = $child['username'];
-    $child_grade = $child['class_name'] ?? 'Unassigned';
-}
-
-// 1. Calculate Attendance %
-if ($child_id > 0) {
-    $total_days_sql = "SELECT COUNT(*) as count FROM attendance WHERE user_id = $child_id";
-    $present_days_sql = "SELECT COUNT(*) as count FROM attendance WHERE user_id = $child_id AND status = 'present'";
-    $total_days = $conn->query($total_days_sql)->fetch_assoc()['count'];
-    $present_days = $conn->query($present_days_sql)->fetch_assoc()['count'];
-    $att_percentage = ($total_days > 0) ? round(($present_days / $total_days) * 100) : 0;
-} else {
-    $att_percentage = 0;
-}
+$stmt = $conn->prepare($sql);
+$stmt->bind_param("i", $parent_id);
+$stmt->execute();
+$children = $stmt->get_result();
 ?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Parent Portal | St. Thomas Church Kanamala</title>
-    <link rel="stylesheet" href="../css/dashboard.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <title>Parent Dashboard</title>
+    <link rel="stylesheet" href="../css/style.css">
+    <style>
+        .child-card { border: 1px solid #ddd; padding: 15px; margin-bottom: 15px; border-radius: 8px; background: #fff; }
+        .stats { display: flex; gap: 20px; font-weight: bold; margin-top: 10px; }
+        .stat-box { background: #f8f9fa; padding: 10px; border-radius: 4px; }
+    </style>
 </head>
 <body>
-
-    <!-- SIDEBAR -->
-    <div class="sidebar">
-        <div class="logo">
-            <i class="fa-solid fa-church"></i> 
-            <span>St. Thomas Church Kanamala</span>
-        </div>
-        <ul class="menu">
-            <li><a href="dashboard_parent.php" class="active"><i class="fa-solid fa-table-columns"></i> Dashboard</a></li>
-            <li><a href="my_children.php"><i class="fa-solid fa-child-reaching"></i> My Children</a></li>
-            <li><a href="payments.php"><i class="fa-solid fa-hand-holding-dollar"></i> Payments</a></li>
-            <li><a href="messages.php"><i class="fa-solid fa-envelope"></i> Messages</a></li>
-        </ul>
-        <div class="logout">
-            <a href="../index.html"><i class="fa-solid fa-right-from-bracket"></i> Log Out</a>
+    <div style="background: #333; color: white; padding: 15px; display: flex; justify-content: space-between; align-items: center;">
+        <h1>Parent Dashboard</h1>
+        <div>
+            <span>Welcome, <?= htmlspecialchars($_SESSION['username']) ?></span>
+            <a href="../index.html" style="color: #ff9999; margin-left: 15px; text-decoration: none;">Logout</a>
         </div>
     </div>
 
-    <!-- MAIN CONTENT -->
-    <div class="main-content">
+    <div style="max-width: 1000px; margin: 20px auto; padding: 20px;">
+        <h2>My Children</h2>
         
-        <div class="top-bar">
-            <div class="welcome-text">
-                <h2>Welcome, <?php echo htmlspecialchars($_SESSION['username']); ?></h2>
-                <p>Tracking your children's spiritual growth.</p>
-            </div>
-            <div class="user-profile">
-                <span><?php echo htmlspecialchars($_SESSION['username']); ?></span>
-                <div class="user-img">
-                    <img src="https://ui-avatars.com/api/?name=<?php echo urlencode($_SESSION['username']); ?>&background=random" alt="Parent">
-                </div>
-            </div>
-        </div>
-
-        <!-- CHILD SELECTOR TAB -->
-        <div style="margin-bottom: 20px; display: flex; gap: 10px;">
-            <button style="padding: 10px 20px; background: var(--primary); color: white; border: none; border-radius: 20px; font-weight: 500;">
-                <?php echo htmlspecialchars($child_name); ?> (<?php echo htmlspecialchars($child_grade); ?>)
-            </button>
-            <?php if ($child_id == 0): ?>
-                <span style="color:red; align-self:center; font-size:0.9rem; margin-left:10px;">Please contact Admin to link your child.</span>
-            <?php endif; ?>
-        </div>
-
-        <div class="grid-container">
-            <div class="card">
-                <div class="card-info">
-                    <h3><?php echo $att_percentage; ?>%</h3>
-                    <p><?php echo $child_name; ?>'s Attendance</p>
-                </div>
-                <div class="card-icon bg-green">
-                    <i class="fa-solid fa-calendar-check"></i>
-                </div>
-            </div>
-            <div class="card">
-                <div class="card-info">
-                    <h3>$0</h3>
-                    <p>Fees Pending</p>
-                </div>
-                <div class="card-icon bg-blue">
-                    <i class="fa-solid fa-receipt"></i>
-                </div>
-            </div>
-        </div>
-
-        <div class="section-grid">
-            <div class="panel">
-                <div class="panel-header">
-                    <h3>Announcements & Remarks</h3>
-                </div>
-                <?php
-                $ann_sql = "SELECT title, content, created_at FROM announcements WHERE target_role IN ('all', 'parent') ORDER BY created_at DESC LIMIT 3";
-                $ann_res = $conn->query($ann_sql);
-                if ($ann_res->num_rows > 0) {
-                    while($row = $ann_res->fetch_assoc()) {
-                        echo "<div style='background: #f9f9f9; padding: 15px; border-radius: 8px; border-left: 4px solid var(--primary); margin-bottom:10px;'>";
-                        echo "<h4>" . htmlspecialchars($row['title']) . "</h4>";
-                        echo "<p style='font-size: 14px; color: #555;'>" . htmlspecialchars($row['content']) . "</p>";
-                        echo "<p style='font-size: 12px; color: #aaa; margin-top: 5px;'>" . date("M j", strtotime($row['created_at'])) . "</p>";
-                        echo "</div>";
-                    }
-                } else {
-                    echo "<p>No recent announcements.</p>";
-                }
+        <?php if ($children->num_rows > 0): ?>
+            <?php while($child = $children->fetch_assoc()): ?>
+                <?php 
+                    $percent = ($child['total_attendance'] > 0) 
+                        ? round(($child['present_count'] / $child['total_attendance']) * 100, 1) 
+                        : 0; 
                 ?>
-            </div>
+                <div class="child-card">
+                    <h3><?= htmlspecialchars($child['username']) ?></h3>
+                    <p>Class ID: <?= htmlspecialchars($child['class_id'] ?? 'Not Assigned') ?></p>
+                    
+                    <div class="stats">
+                        <div class="stat-box">Attendance: <?= $percent ?>%</div>
+                        <div class="stat-box">Present: <?= $child['present_count'] ?></div>
+                        <div class="stat-box">Total Days: <?= $child['total_attendance'] ?></div>
+                    </div>
+                    
+                    <!-- NEW: Results Section -->
+                    <div style="margin-top: 15px; border-top: 1px solid #eee; padding-top: 10px;">
+                        <h4 style="margin: 0 0 10px 0; color: #555;">Exam Results</h4>
+                        <?php
+                            $r_sql = "SELECT marks, updated_at FROM results WHERE student_id = " . $child['id'];
+                            $r_res = $conn->query($r_sql);
+                            if ($r_res->num_rows > 0) {
+                                $r_row = $r_res->fetch_assoc();
+                                echo "<div style='background: #e8f4fc; padding: 10px; border-radius: 4px; display: inline-block;'>";
+                                echo "<span style='font-size: 18px; font-weight: bold; color: #2980b9;'>" . $r_row['marks'] . "/100</span>";
+                                echo "<span style='font-size: 12px; color: #777; margin-left: 10px;'>(" . date('d M Y', strtotime($r_row['updated_at'])) . ")</span>";
+                                echo "</div>";
+                            } else {
+                                echo "<p style='color: #999; font-style: italic; font-size: 13px;'>No results published yet.</p>";
+                            }
+                        ?>
+                    </div>
 
-            <div class="panel">
-                <div class="panel-header">
-                    <h3>Upcoming School Events</h3>
+                    <!-- NEW: Assignments Section -->
+                    <div style="margin-top: 15px; border-top: 1px solid #eee; padding-top: 10px;">
+                        <h4 style="margin: 0 0 10px 0; color: #555;">Upcoming Assignments</h4>
+                        <?php
+                            if ($child['class_id']) {
+                                $a_sql = "SELECT title, due_date FROM assignments WHERE class_id = " . $child['class_id'] . " AND due_date >= CURDATE() ORDER BY due_date ASC LIMIT 3";
+                                $a_res = $conn->query($a_sql);
+                                if ($a_res->num_rows > 0) {
+                                    echo "<ul style='padding-left: 20px; margin: 0;'>";
+                                    while($a_row = $a_res->fetch_assoc()) {
+                                        echo "<li style='margin-bottom: 5px; color: #444;'>";
+                                        echo "<strong>" . htmlspecialchars($a_row['title']) . "</strong> ";
+                                        echo "<span style='color: #e74c3c; font-size: 12px;'>Due: " . date('M j', strtotime($a_row['due_date'])) . "</span>";
+                                        echo "</li>";
+                                    }
+                                    echo "</ul>";
+                                } else {
+                                    echo "<p style='color: #999; font-style: italic; font-size: 13px;'>No impending assignments.</p>";
+                                }
+                            } else {
+                                echo "<p style='color: #999; font-style: italic; font-size: 13px;'>Class not assigned.</p>";
+                            }
+                        ?>
+                    </div>
+
+                    <div style="margin-top: 15px;">
+                        <a href="view_attendance.php?student_id=<?= $child['id'] ?>" class="btn-small" style="display:inline-block; padding:8px 12px; background:#f0f0f0; color:#333; text-decoration:none; border-radius:4px; font-size:13px;">View Detailed Attendance</a>
+                    </div>
                 </div>
-                <?php
-                $e_sql = "SELECT title, event_date, description FROM events WHERE event_date >= CURDATE() ORDER BY event_date ASC LIMIT 3";
-                $e_res = $conn->query($e_sql);
-                if ($e_res->num_rows > 0) {
-                    while($row = $e_res->fetch_assoc()) {
-                        echo "<div style='border: 1px solid #eee; padding: 15px; border-radius: 8px; margin-bottom:10px;'>";
-                        echo "<h4 style='margin-bottom: 5px;'>" . htmlspecialchars($row['title']) . "</h4>";
-                        echo "<p style='font-size: 13px; color: #7f8c8d; margin-bottom: 5px;'>" . date("M j, h:i A", strtotime($row['event_date'])) . "</p>";
-                        echo "<p style='font-size: 13px;'>" . htmlspecialchars($row['description']) . "</p>";
-                        echo "</div>";
-                    }
-                } else {
-                    echo "<p>No upcoming events.</p>";
-                }
-                ?>
-            </div>
-        </div>
-        
+            <?php endwhile; ?>
+        <?php else: ?>
+            <p>No children linked to your account yet. Please contact the administrator.</p>
+        <?php endif; ?>
     </div>
-
 </body>
 </html>

@@ -11,10 +11,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_assignment'])) {
     $title = $conn->real_escape_string($_POST['title']);
     $description = $conn->real_escape_string($_POST['description']);
     $due_date = $conn->real_escape_string($_POST['due_date']);
-    $target_grade = $conn->real_escape_string($_POST['target_grade']);
+    $class_id = intval($_POST['class_id']);
     $assigned_by = $_SESSION['user_id'];
 
-    $sql = "INSERT INTO assignments (title, description, due_date, target_grade, assigned_by) VALUES ('$title', '$description', '$due_date', '$target_grade', $assigned_by)";
+    $sql = "INSERT INTO assignments (title, description, due_date, class_id, assigned_by) VALUES ('$title', '$description', '$due_date', '$class_id', $assigned_by)";
     if ($conn->query($sql)) {
          header("Location: manage_assignments.php?msg=success");
          exit;
@@ -29,7 +29,12 @@ if (isset($_GET['delete'])) {
     exit;
 }
 
-$result = $conn->query("SELECT * FROM assignments ORDER BY due_date DESC");
+// Fetch Assignments with Class Name
+$sql = "SELECT a.*, c.class_name FROM assignments a LEFT JOIN classes c ON a.class_id = c.id ORDER BY a.due_date DESC";
+$result = $conn->query($sql);
+
+// Fetch Classes for Dropdown
+$classes = $conn->query("SELECT id, class_name FROM classes ORDER BY class_name ASC");
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -58,6 +63,7 @@ $result = $conn->query("SELECT * FROM assignments ORDER BY due_date DESC");
             <li><a href="my_class.php"><i class="fa-solid fa-user-group"></i> My Class</a></li>
             <li><a href="attendance_history.php"><i class="fa-solid fa-clipboard-check"></i> Attendance</a></li>
             <li><a href="#" class="active"><i class="fa-solid fa-book"></i> Lesson Plans</a></li>
+            <li><a href="manage_results.php"><i class="fa-solid fa-chart-line"></i> Results</a></li>
         </ul>
         <div class="logout"><a href="../index.html"><i class="fa-solid fa-right-from-bracket"></i> Log Out</a></div>
     </div>
@@ -76,11 +82,12 @@ $result = $conn->query("SELECT * FROM assignments ORDER BY due_date DESC");
                     <input type="text" name="title" required placeholder="e.g., Read Genesis 1">
                 </div>
                 <div class="form-group">
-                    <label>Target Grade</label>
-                    <select name="target_grade">
-                        <option value="Grade 1">Grade 1</option>
-                        <option value="Grade 4">Grade 4</option>
-                        <option value="All">All Grades</option>
+                    <label>Assign to Class</label>
+                    <select name="class_id" required>
+                        <option value="">-- Select Class --</option>
+                        <?php while($c = $classes->fetch_assoc()): ?>
+                            <option value="<?= $c['id'] ?>"><?= htmlspecialchars($c['class_name']) ?></option>
+                        <?php endwhile; ?>
                     </select>
                 </div>
                 <div class="form-group">
@@ -101,7 +108,7 @@ $result = $conn->query("SELECT * FROM assignments ORDER BY due_date DESC");
                 <thead>
                     <tr>
                         <th>Title</th>
-                        <th>Grade</th>
+                        <th>Class</th>
                         <th>Due Date</th>
                         <th>Action</th>
                     </tr>
@@ -110,7 +117,15 @@ $result = $conn->query("SELECT * FROM assignments ORDER BY due_date DESC");
                     <?php while($row = $result->fetch_assoc()): ?>
                     <tr>
                         <td><?php echo htmlspecialchars($row['title']); ?></td>
-                        <td><?php echo htmlspecialchars($row['target_grade']); ?></td>
+                        <td>
+                            <?php if($row['class_name']): ?>
+                                <span class="badge" style="background:#e8f4fc; color:#2c3e50; padding:4px 8px; border-radius:4px; font-size:12px;">
+                                    <?php echo htmlspecialchars($row['class_name']); ?>
+                                </span>
+                            <?php else: ?>
+                                <span style="color:#aaa;">All / Unassigned</span>
+                            <?php endif; ?>
+                        </td>
                         <td><?php echo date("M j, Y", strtotime($row['due_date'])); ?></td>
                         <td>
                             <a href="?delete=<?php echo $row['id']; ?>" class="btn-delete" onclick="return confirm('Delete?');"><i class="fa-solid fa-trash"></i></a>

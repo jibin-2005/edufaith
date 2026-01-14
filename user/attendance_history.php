@@ -6,7 +6,8 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'teacher') {
 }
 require '../includes/db.php';
 
-$date_filter = isset($_GET['date']) ? $_GET['date'] : date("Y-m-d");
+$date_default = (date('w') == 0) ? date("Y-m-d") : date("Y-m-d", strtotime("last sunday"));
+$date_filter = isset($_GET['date']) ? $_GET['date'] : $date_default;
 
 $sql = "SELECT u.username, a.status 
         FROM attendance a 
@@ -40,6 +41,7 @@ $result = $conn->query($sql);
             <li><a href="my_class.php"><i class="fa-solid fa-user-group"></i> My Class</a></li>
             <li><a href="#" class="active"><i class="fa-solid fa-clipboard-check"></i> Attendance</a></li>
             <li><a href="manage_assignments.php"><i class="fa-solid fa-book"></i> Lesson Plans</a></li>
+            <li><a href="manage_results.php"><i class="fa-solid fa-chart-line"></i> Results</a></li>
         </ul>
         <div class="logout"><a href="../index.html"><i class="fa-solid fa-right-from-bracket"></i> Log Out</a></div>
     </div>

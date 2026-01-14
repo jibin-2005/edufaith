@@ -19,55 +19,64 @@ $email = $input['email'];
 //    Since we don't have Composer/Admin SDK easily on this XAMPP, we trust the email.
 
 // 2. Check if this email exists in MySQL
-$stmt = $conn->prepare("SELECT id, username, role FROM users WHERE email = ?");
-$stmt->bind_param("s", $email);
+$firebase_uid = isset($input['uid']) ? $input['uid'] : null;
+
+// --- BRIDGE LOGIC ---
+
+// 1. Check if user exists by Firebase UID
+$stmt = $conn->prepare("SELECT id, username, role, status, email FROM users WHERE firebase_uid = ?");
+$stmt->bind_param("s", $firebase_uid);
 $stmt->execute();
 $result = $stmt->get_result();
 
 if ($result->num_rows === 1) {
-    // User Match Found in MySQL!
+    // Found by UID
     $user = $result->fetch_assoc();
-    
-    $role = strtolower($user['role']);
-    
-    $_SESSION['user_id'] = $user['id'];
-    $_SESSION['username'] = $user['username'];
-    $_SESSION['role'] = $role;
-    $_SESSION['auth_provider'] = 'firebase';
-
-    // Determine Redirect
-    $redirect_url = 'user/dashboard_student.php'; // Default fallback
-    if ($role === 'admin') $redirect_url = 'admin/dashboard_admin.php';
-    elseif ($role === 'teacher') $redirect_url = 'user/dashboard_teacher.php';
-    elseif ($role === 'student') $redirect_url = 'user/dashboard_student.php';
-    elseif ($role === 'parent') $redirect_url = 'user/dashboard_parent.php';
-
-    echo json_encode(['success' => true, 'redirect' => $redirect_url]);
-
 } else {
-    // User authenticated in Firebase but NOT found in MySQL
-    // Auto-Register as student
-    $displayName = isset($input['displayName']) ? $input['displayName'] : $email;
-    $defaultRole = 'student'; 
-    $randomPass = password_hash(bin2hex(random_bytes(16)), PASSWORD_DEFAULT);
+    // 2. Fallback: Check by Email (Migration or first sync)
+    $stmt->close(); // Close previous
+    $stmt = $conn->prepare("SELECT id, username, role, status, email FROM users WHERE email = ?");
+    $stmt->bind_param("s", $email);
+    $stmt->execute();
+    $result = $stmt->get_result();
 
-    $insertStmt = $conn->prepare("INSERT INTO users (username, email, password, role) VALUES (?, ?, ?, ?)");
-    $insertStmt->bind_param("ssss", $displayName, $email, $randomPass, $defaultRole);
-    
-    if ($insertStmt->execute()) {
-        $newId = $insertStmt->insert_id;
-        
-        $_SESSION['user_id'] = $newId;
-        $_SESSION['username'] = $displayName;
-        $_SESSION['role'] = $defaultRole;
-        $_SESSION['auth_provider'] = 'firebase';
-
-        echo json_encode(['success' => true, 'redirect' => 'user/dashboard_student.php', 'is_new' => true]);
+    if ($result->num_rows === 1) {
+        $user = $result->fetch_assoc();
+        // Update UID for future logins
+        if ($firebase_uid) {
+            $updateStmt = $conn->prepare("UPDATE users SET firebase_uid = ? WHERE id = ?");
+            $updateStmt->bind_param("si", $firebase_uid, $user['id']);
+            $updateStmt->execute();
+            $updateStmt->close();
+        }
     } else {
-        echo json_encode(['success' => false, 'message' => 'Database Sync Error: ' . $conn->error]);
+        // User NOT found
+        echo json_encode(['success' => false, 'message' => 'User not found in system. Please contact Administrator.']);
+        exit;
     }
-    $insertStmt->close();
 }
+
+// 3. Status Check
+if ($user['status'] === 'inactive') {
+    echo json_encode(['success' => false, 'message' => 'Account is inactive. Contact Administrator.']);
+    exit;
+}
+
+// 4. Success - Set Session
+$role = strtolower($user['role']);
+$_SESSION['user_id'] = $user['id'];
+$_SESSION['username'] = $user['username'];
+$_SESSION['role'] = $role;
+$_SESSION['auth_provider'] = 'firebase';
+
+// Determine Redirect
+$redirect_url = 'user/dashboard_student.php'; // Default
+if ($role === 'admin') $redirect_url = 'admin/dashboard_admin.php';
+elseif ($role === 'teacher') $redirect_url = 'user/dashboard_teacher.php';
+elseif ($role === 'student') $redirect_url = 'user/dashboard_student.php';
+elseif ($role === 'parent') $redirect_url = 'user/dashboard_parent.php';
+
+echo json_encode(['success' => true, 'redirect' => $redirect_url]);
 
 $stmt->close();
 $conn->close();

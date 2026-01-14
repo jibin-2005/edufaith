@@ -69,6 +69,20 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'teacher') {
                     <input type="password" id="password" name="password" required placeholder="Minimum 6 characters">
                 </div>
 
+                <div class="form-group">
+                    <label>Assign to Class</label>
+                    <select name="class_id" id="class_id" required>
+                        <option value="">-- Select Class --</option>
+                        <?php
+                        require '../includes/db.php';
+                        $classes = $conn->query("SELECT id, class_name FROM classes WHERE status = 'active' ORDER BY class_name ASC");
+                        while($c = $classes->fetch_assoc()):
+                        ?>
+                            <option value="<?php echo $c['id']; ?>"><?php echo htmlspecialchars($c['class_name']); ?></option>
+                        <?php endwhile; ?>
+                    </select>
+                </div>
+
                 <div id="statusMsg" style="margin-bottom:15px; font-size:14px;"></div>
 
                 <button type="submit" id="submitBtn" class="btn-submit">Add Student</button>

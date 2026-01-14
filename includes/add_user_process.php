@@ -33,9 +33,9 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         exit;
     }
 
-    $stmt = $conn->prepare("INSERT INTO users (username, email, password, role, class_id) VALUES (?, ?, ?, ?, ?)");
+    $stmt = $conn->prepare("INSERT INTO users (username, email, password, role, class_id, firebase_uid, status) VALUES (?, ?, ?, ?, ?, ?, 'active')");
     $class_id = !empty($_POST['class_id']) ? $_POST['class_id'] : NULL;
-    $stmt->bind_param("ssssi", $username, $email, $password, $role, $class_id);
+    $stmt->bind_param("ssssss", $username, $email, $password, $role, $class_id, $firebase_uid);
 
     if ($stmt->execute()) {
         if ($_SESSION['role'] === 'teacher') {

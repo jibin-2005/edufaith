@@ -122,6 +122,7 @@ require '../includes/db.php';
         </div>
         
         <!-- ASSIGNMENTS SECTION -->
+        <!-- ASSIGNMENTS SECTION -->
         <div class="panel" style="margin-top: 24px;">
             <div class="panel-header">
                 <h3>Assignments Due</h3>
@@ -130,20 +131,37 @@ require '../includes/db.php';
                  <thead>
                     <tr>
                         <th>Title</th>
-                        <th>Grade</th>
+                        <th>Class</th>
                         <th>Due Date</th>
                     </tr>
                 </thead>
                 <tbody>
                     <?php
-                    // Display assignments
-                    $a_sql = "SELECT title, target_grade, due_date FROM assignments WHERE due_date >= CURDATE() ORDER BY due_date ASC LIMIT 5";
+                    // Get Student's Class ID
+                    $my_id = $_SESSION['user_id'];
+                    $c_res = $conn->query("SELECT class_id FROM users WHERE id = $my_id");
+                    $my_class = $c_res->fetch_assoc()['class_id'];
+                    
+                    // Display assignments for this class or global ones (class_id IS NULL)
+                    // We assume strictly class based now, but good to handle NULL if needed for "All"
+                    // Modified to include class name for clarity
+                    if ($my_class) {
+                         $a_sql = "SELECT a.title, a.due_date, c.class_name 
+                                   FROM assignments a 
+                                   LEFT JOIN classes c ON a.class_id = c.id 
+                                   WHERE a.class_id = $my_class AND a.due_date >= CURDATE() 
+                                   ORDER BY a.due_date ASC LIMIT 5";
+                    } else {
+                         //$a_sql = "SELECT title, due_date FROM assignments WHERE 1=0"; // No class, no assignments?
+                         $a_sql = "SELECT title, due_date, 'All' as class_name FROM assignments WHERE class_id IS NULL AND due_date >= CURDATE()";
+                    }
+
                     $a_res = $conn->query($a_sql);
-                    if ($a_res->num_rows > 0) {
+                    if ($a_res && $a_res->num_rows > 0) {
                         while($row = $a_res->fetch_assoc()) {
                              echo "<tr>";
                              echo "<td>" . htmlspecialchars($row['title']) . "</td>";
-                             echo "<td>" . htmlspecialchars($row['target_grade']) . "</td>";
+                             echo "<td>" . htmlspecialchars($row['class_name'] ?? 'General') . "</td>";
                              echo "<td><span style='color:red;'>" . date("M j", strtotime($row['due_date'])) . "</span></td>";
                              echo "</tr>";
                         }
@@ -153,6 +171,30 @@ require '../includes/db.php';
                     ?>
                 </tbody>
             </table>
+        </div>
+
+        <!-- RESULTS SECTION -->
+        <div class="panel" style="margin-top: 24px;">
+            <div class="panel-header">
+                <h3>Exam Results</h3>
+            </div>
+            <?php
+                // Fetch Results
+                $r_sql = "SELECT marks, updated_at FROM results WHERE student_id = $my_id";
+                $r_res = $conn->query($r_sql);
+                if ($r_res->num_rows > 0) {
+                    $r_row = $r_res->fetch_assoc();
+                    $marks = $r_row['marks'];
+                    $date = date("M j, Y", strtotime($r_row['updated_at']));
+                    
+                    echo "<div style='text-align:center; padding:20px;'>";
+                    echo "<h1 style='font-size:48px; color:var(--primary); margin:0;'>$marks<span style='font-size:24px; color:#666;'>/100</span></h1>";
+                    echo "<p style='color:#888; margin-top:10px;'>Last Updated: $date</p>";
+                    echo "</div>";
+                } else {
+                     echo "<div style='text-align:center; padding:20px; color:#666;'>No results published yet.</div>";
+                }
+            ?>
         </div>
         
     </div>
