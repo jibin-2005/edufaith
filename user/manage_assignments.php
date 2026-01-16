@@ -14,10 +14,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_assignment'])) {
     $class_id = intval($_POST['class_id']);
     $assigned_by = $_SESSION['user_id'];
 
-    $sql = "INSERT INTO assignments (title, description, due_date, class_id, assigned_by) VALUES ('$title', '$description', '$due_date', '$class_id', $assigned_by)";
+    $sql = "INSERT INTO assignments (title, description, due_date, class_id, assigned_by, created_by) VALUES ('$title', '$description', '$due_date', '$class_id', $assigned_by, $assigned_by)";
     if ($conn->query($sql)) {
          header("Location: manage_assignments.php?msg=success");
          exit;
+    } else {
+         $error_msg = $conn->error;
     }
 }
 
@@ -61,8 +63,9 @@ $classes = $conn->query("SELECT id, class_name FROM classes ORDER BY class_name 
         <ul class="menu">
             <li><a href="dashboard_teacher.php"><i class="fa-solid fa-table-columns"></i> Dashboard</a></li>
             <li><a href="my_class.php"><i class="fa-solid fa-user-group"></i> My Class</a></li>
-            <li><a href="attendance_history.php"><i class="fa-solid fa-clipboard-check"></i> Attendance</a></li>
-            <li><a href="#" class="active"><i class="fa-solid fa-book"></i> Lesson Plans</a></li>
+            <li><a href="attendance_teacher.php"><i class="fa-solid fa-calendar-check"></i> Attendance</a></li>
+            <li><a href="manage_leaves.php"><i class="fa-solid fa-envelope-open-text"></i> Leave Requests</a></li>
+            <li><a href="manage_assignments.php" class="active"><i class="fa-solid fa-book"></i> Lesson Plans</a></li>
             <li><a href="manage_results.php"><i class="fa-solid fa-chart-line"></i> Results</a></li>
         </ul>
         <div class="logout"><a href="../index.html"><i class="fa-solid fa-right-from-bracket"></i> Log Out</a></div>
@@ -73,6 +76,17 @@ $classes = $conn->query("SELECT id, class_name FROM classes ORDER BY class_name 
             <h2>Lesson Plans & Assignments</h2>
             <div class="user-profile"><span><?php echo htmlspecialchars($_SESSION['username']); ?></span></div>
         </div>
+
+        <?php if (isset($_GET['msg']) && $_GET['msg'] === 'success'): ?>
+            <div style="background: #d4edda; color: #155724; padding: 12px; border-radius: 6px; margin-bottom: 15px;">
+                <i class="fa-solid fa-circle-check"></i> Assignment posted successfully!
+            </div>
+        <?php endif; ?>
+        <?php if (isset($error_msg)): ?>
+            <div style="background: #f8d7da; color: #721c24; padding: 12px; border-radius: 6px; margin-bottom: 15px;">
+                <i class="fa-solid fa-circle-exclamation"></i> Error: <?= htmlspecialchars($error_msg) ?>
+            </div>
+        <?php endif; ?>
 
         <div class="form-container">
             <h3>Add New Assignment</h3>

@@ -112,12 +112,17 @@ $result = $conn->query($sql);
                         <th>Name</th>
                         <th>Assigned Class</th>
                         <th>Email</th>
+                        <th>Status</th>
                         <th>Action</th>
                     </tr>
                 </thead>
                 <tbody>
                     <?php if ($result->num_rows > 0): ?>
-                        <?php while($row = $result->fetch_assoc()): ?>
+                        <?php while($row = $result->fetch_assoc()): 
+                            $status_info = $conn->query("SELECT status FROM users WHERE id = " . $row['id'])->fetch_assoc();
+                            $status = $status_info['status'] ? $status_info['status'] : 'active';
+                            $status_class = ($status === 'active') ? 'present' : 'absent';
+                        ?>
                             <tr>
                                 <td>#<?php echo $row['id']; ?></td>
                                 <td><?php echo htmlspecialchars($row['username']); ?></td>
@@ -132,9 +137,10 @@ $result = $conn->query($sql);
                                     <a href="#" onclick="openAssignModal(<?php echo $row['id']; ?>, '<?php echo addslashes($row['username']); ?>')" style="font-size:12px; margin-left:5px; text-decoration:underline;">Change</a>
                                 </td>
                                 <td><?php echo htmlspecialchars($row['email']); ?></td>
+                                <td><span class="status <?php echo $status_class; ?>"><?php echo ucfirst($status); ?></span></td>
                                 <td>
                                     <a href="edit_user.php?id=<?php echo $row['id']; ?>"><i class="fa-solid fa-user-pen" style="color: #3498db; cursor: pointer; margin-right: 15px;"></i></a>
-                                    <a href="manage_teachers.php?delete_id=<?php echo $row['id']; ?>" onclick="return confirm('Are you sure you want to delete this teacher?');">
+                                    <a href="#" onclick="openDeleteModal(<?php echo $row['id']; ?>, '<?php echo addslashes($row['username']); ?>')">
                                         <i class="fa-solid fa-trash" style="color: #e74c3c; cursor: pointer;"></i>
                                     </a>
                                 </td>
@@ -142,13 +148,43 @@ $result = $conn->query($sql);
                         <?php endwhile; ?>
                     <?php else: ?>
                         <tr>
-                            <td colspan="5" style="text-align: center; padding: 20px; color: #888;">No teachers found.</td>
+                            <td colspan="6" style="text-align: center; padding: 20px; color: #888;">No teachers found.</td>
                         </tr>
                     <?php endif; ?>
                 </tbody>
             </table>
         </div>
         
+        <!-- Delete Teacher Modal -->
+        <div id="deleteModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:1000;">
+            <div style="background:white; width:450px; margin:100px auto; padding:25px; border-radius:8px;">
+                <h3 style="margin-top:0; color:#e74c3c;">Manage Teacher Account: <span id="deleteTeacherName"></span></h3>
+                <p style="color:#666; margin-bottom:20px;">Choose an action for this teacher:</p>
+                
+                <div style="margin-bottom:20px;">
+                    <div style="border:1px solid #ddd; padding:15px; border-radius:6px; margin-bottom:10px; cursor:pointer;" onclick="selectDeleteType('soft')" id="softDeleteOption">
+                        <input type="radio" name="delete_type" value="soft" id="softRadio">
+                        <label for="softRadio" style="cursor:pointer; margin-left:5px;">
+                            <strong>Soft Delete (Deactivate)</strong><br>
+                            <small style="color:#666;">Set status to inactive. Teacher cannot login but data is preserved.</small>
+                        </label>
+                    </div>
+                    
+                    <div style="border:1px solid #ddd; padding:15px; border-radius:6px; cursor:pointer;" onclick="selectDeleteType('hard')" id="hardDeleteOption">
+                        <input type="radio" name="delete_type" value="hard" id="hardRadio">
+                        <label for="hardRadio" style="cursor:pointer; margin-left:5px;">
+                            <strong>Hard Delete (Permanent)</strong><br>
+                            <small style="color:#666;">Permanently remove from database. This cannot be undone!</small>
+                        </label>
+                    </div>
+                </div>
+                
+                <div style="text-align:right;">
+                    <button type="button" onclick="closeDeleteModal()" style="padding:10px 20px; background:#ccc; border:none; border-radius:4px; cursor:pointer; margin-right:10px;">Cancel</button>
+                    <button type="button" onclick="confirmDelete()" id="confirmDeleteBtn" style="padding:10px 20px; background:#e74c3c; color:white; border:none; border-radius:4px; cursor:pointer;" disabled>Confirm Action</button>
+                </div>
+            </div>
+        </div>
         <!-- Assign Class Modal -->
         <div id="assignModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:1000;">
             <div style="background:white; width:400px; margin:100px auto; padding:25px; border-radius:8px;">
@@ -177,10 +213,69 @@ $result = $conn->query($sql);
         </div>
 
         <script>
+            let currentDeleteId = null;
+
             function openAssignModal(id, name) {
                 document.getElementById('assignTeacherId').value = id;
                 document.getElementById('assignTeacherName').innerText = name;
                 document.getElementById('assignModal').style.display = 'block';
+            }
+
+            function openDeleteModal(id, name) {
+                currentDeleteId = id;
+                document.getElementById('deleteModal').style.display = 'block';
+                document.getElementById('deleteTeacherName').innerText = name;
+                document.getElementById('confirmDeleteBtn').disabled = true;
+                document.getElementById('softRadio').checked = false;
+                document.getElementById('hardRadio').checked = false;
+            }
+
+            function closeDeleteModal() {
+                document.getElementById('deleteModal').style.display = 'none';
+                currentDeleteId = null;
+            }
+
+            function selectDeleteType(type) {
+                if (type === 'soft') {
+                    document.getElementById('softRadio').checked = true;
+                    document.getElementById('softDeleteOption').style.borderColor = '#3498db';
+                    document.getElementById('hardDeleteOption').style.borderColor = '#ddd';
+                } else {
+                    document.getElementById('hardRadio').checked = true;
+                    document.getElementById('hardDeleteOption').style.borderColor = '#e74c3c';
+                    document.getElementById('softDeleteOption').style.borderColor = '#ddd';
+                }
+                document.getElementById('confirmDeleteBtn').disabled = false;
+            }
+
+            async function confirmDelete() {
+                const deleteType = document.querySelector('input[name="delete_type"]:checked').value;
+                
+                if (!confirm(`Are you sure you want to ${deleteType} delete this teacher?`)) {
+                    return;
+                }
+                
+                const formData = new FormData();
+                formData.append('teacher_id', currentDeleteId);
+                formData.append('delete_type', deleteType);
+                
+                try {
+                    const response = await fetch('../includes/delete_teacher.php', {
+                        method: 'POST',
+                        body: formData
+                    });
+                    
+                    const result = await response.json();
+                    
+                    if (result.success) {
+                        alert(result.message);
+                        location.reload();
+                    } else {
+                        alert('Error: ' + result.message);
+                    }
+                } catch (error) {
+                    alert('Error: ' + error.message);
+                }
             }
         </script>
     </div>

@@ -25,9 +25,10 @@ require '../includes/db.php';
         </div>
         <ul class="menu">
             <li><a href="dashboard_student.php" class="active"><i class="fa-solid fa-table-columns"></i> Dashboard</a></li>
+            <li><a href="attendance_student.php"><i class="fa-solid fa-calendar-check"></i> Attendance</a></li>
+            <li><a href="leave_student.php"><i class="fa-solid fa-envelope-open-text"></i> Leave Requests</a></li>
             <li><a href="my_lessons.php"><i class="fa-solid fa-book-bible"></i> My Lessons</a></li>
-            <li><a href="achievements.php"><i class="fa-solid fa-star"></i> Achievements</a></li>
-            <li><a href="calendar.php"><i class="fa-solid fa-calendar-check"></i> Calendar</a></li>
+            <li><a href="view_results.php"><i class="fa-solid fa-chart-line"></i> Results</a></li>
         </ul>
         <div class="logout">
             <a href="../index.html"><i class="fa-solid fa-right-from-bracket"></i> Log Out</a>
@@ -64,15 +65,6 @@ require '../includes/db.php';
                 </div>
             </div>
 
-            <div class="card">
-                <div class="card-info">
-                    <h3>92%</h3>
-                    <p>Attendance</p>
-                </div>
-                <div class="card-icon bg-blue">
-                    <i class="fa-solid fa-chart-pie"></i>
-                </div>
-            </div>
         </div>
 
         <div class="section-grid">
@@ -106,18 +98,6 @@ require '../includes/db.php';
                         ?>
                     </tbody>
                 </table>
-            </div>
-
-            <div class="panel">
-                <div class="panel-header">
-                    <h3>My Badges</h3>
-                </div>
-                <!-- Static Badges (placeholder logic could be expanded) -->
-                <div style="display: flex; gap: 10px; flex-wrap: wrap;">
-                    <i class="fa-solid fa-medal" style="font-size: 32px; color: gold;" title="Perfect Attendance"></i>
-                    <i class="fa-solid fa-star" style="font-size: 32px; color: orange;" title="Verse Master"></i>
-                    <i class="fa-solid fa-hands-praying" style="font-size: 32px; color: #3498db;" title="Helper"></i>
-                </div>
             </div>
         </div>
         
@@ -179,22 +159,49 @@ require '../includes/db.php';
                 <h3>Exam Results</h3>
             </div>
             <?php
-                // Fetch Results
-                $r_sql = "SELECT marks, updated_at FROM results WHERE student_id = $my_id";
+                // Fetch Results for both exams
+                $exam1_marks = null;
+                $exam1_date = null;
+                $exam2_marks = null;
+                $exam2_date = null;
+                
+                $r_sql = "SELECT exam_type, marks, updated_at FROM results WHERE student_id = $my_id";
                 $r_res = $conn->query($r_sql);
-                if ($r_res->num_rows > 0) {
-                    $r_row = $r_res->fetch_assoc();
-                    $marks = $r_row['marks'];
-                    $date = date("M j, Y", strtotime($r_row['updated_at']));
-                    
-                    echo "<div style='text-align:center; padding:20px;'>";
-                    echo "<h1 style='font-size:48px; color:var(--primary); margin:0;'>$marks<span style='font-size:24px; color:#666;'>/100</span></h1>";
-                    echo "<p style='color:#888; margin-top:10px;'>Last Updated: $date</p>";
-                    echo "</div>";
-                } else {
-                     echo "<div style='text-align:center; padding:20px; color:#666;'>No results published yet.</div>";
+                if ($r_res && $r_res->num_rows > 0) {
+                    while($r_row = $r_res->fetch_assoc()) {
+                        if ($r_row['exam_type'] === 'exam_1') {
+                            $exam1_marks = $r_row['marks'];
+                            $exam1_date = date("M j, Y", strtotime($r_row['updated_at']));
+                        } elseif ($r_row['exam_type'] === 'exam_2') {
+                            $exam2_marks = $r_row['marks'];
+                            $exam2_date = date("M j, Y", strtotime($r_row['updated_at']));
+                        }
+                    }
                 }
             ?>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; padding: 20px;">
+                <!-- Exam 1 -->
+                <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 25px; border-radius: 12px; text-align: center;">
+                    <h4 style="margin: 0 0 15px 0; font-size: 14px; opacity: 0.9;">Main Exam 1</h4>
+                    <?php if ($exam1_marks !== null): ?>
+                        <h1 style="font-size: 48px; margin: 0;"><?= $exam1_marks ?><span style="font-size: 24px; opacity: 0.8;">/100</span></h1>
+                        <p style="margin: 10px 0 0; font-size: 12px; opacity: 0.8;">Updated: <?= $exam1_date ?></p>
+                    <?php else: ?>
+                        <p style="margin: 20px 0; opacity: 0.7;">Not Published</p>
+                    <?php endif; ?>
+                </div>
+                
+                <!-- Exam 2 -->
+                <div style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color: white; padding: 25px; border-radius: 12px; text-align: center;">
+                    <h4 style="margin: 0 0 15px 0; font-size: 14px; opacity: 0.9;">Main Exam 2</h4>
+                    <?php if ($exam2_marks !== null): ?>
+                        <h1 style="font-size: 48px; margin: 0;"><?= $exam2_marks ?><span style="font-size: 24px; opacity: 0.8;">/100</span></h1>
+                        <p style="margin: 10px 0 0; font-size: 12px; opacity: 0.8;">Updated: <?= $exam2_date ?></p>
+                    <?php else: ?>
+                        <p style="margin: 20px 0; opacity: 0.7;">Not Published</p>
+                    <?php endif; ?>
+                </div>
+            </div>
         </div>
         
     </div>

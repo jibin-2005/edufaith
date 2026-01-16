@@ -45,6 +45,7 @@ $event_count = $conn->query($event_sql)->fetch_assoc()['count'];
             <li><a href="manage_parents.php"><i class="fa-solid fa-users"></i> Parents</a></li>
             <li><a href="manage_events.php"><i class="fa-solid fa-calendar-days"></i> Events</a></li>
             <li><a href="manage_bulletins.php"><i class="fa-solid fa-bullhorn"></i> Bulletins</a></li>
+            <li><a href="attendance_admin.php"><i class="fa-solid fa-calendar-check"></i> Attendance</a></li>
         </ul>
         <div class="logout">
             <a href="../index.html"><i class="fa-solid fa-right-from-bracket"></i> Log Out</a>

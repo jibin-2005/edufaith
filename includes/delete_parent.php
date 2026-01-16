@@ -11,7 +11,7 @@ require 'db.php';
 
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $parent_id = intval($_POST['parent_id']);
-    $delete_type = $_POST['delete_type']; // 'soft' or 'hard'
+    $delete_type = isset($_POST['delete_type']) ? $_POST['delete_type'] : 'soft'; // Default to soft
 
     // Validate parent exists
     $check = $conn->prepare("SELECT id FROM users WHERE id = ? AND role = 'parent'");
@@ -30,7 +30,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         $stmt->bind_param("i", $parent_id);
         
         if ($stmt->execute()) {
-            echo json_encode(['success' => true, 'message' => 'Parent account deactivated (soft delete)']);
+            echo json_encode(['success' => true, 'message' => 'Parent account deactivated successfully']);
         } else {
             echo json_encode(['success' => false, 'message' => 'Error: ' . $stmt->error]);
         }
@@ -38,13 +38,17 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         
     } elseif ($delete_type === 'hard') {
         // Hard Delete: Remove from database
-        // Note: parent_student links will be auto-deleted due to ON DELETE CASCADE
-        
+        // Only admins can hard delete
+        if ($_SESSION['role'] !== 'admin') {
+            echo json_encode(['success' => false, 'message' => 'Only admins can permanently delete accounts']);
+            exit;
+        }
+
         $stmt = $conn->prepare("DELETE FROM users WHERE id = ?");
         $stmt->bind_param("i", $parent_id);
         
         if ($stmt->execute()) {
-            echo json_encode(['success' => true, 'message' => 'Parent permanently deleted (hard delete)']);
+            echo json_encode(['success' => true, 'message' => 'Parent permanently deleted']);
         } else {
             echo json_encode(['success' => false, 'message' => 'Error: ' . $stmt->error]);
         }

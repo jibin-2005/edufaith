@@ -83,6 +83,7 @@ while($s = $students->fetch_assoc()) {
             <li><a href="manage_teachers.php"><i class="fa-solid fa-chalkboard-user"></i> Teachers</a></li>
             <li><a href="manage_students.php"><i class="fa-solid fa-user-graduate"></i> Students</a></li>
             <li><a href="manage_parents.php" class="active"><i class="fa-solid fa-users"></i> Parents</a></li>
+            <li><a href="attendance_admin.php"><i class="fa-solid fa-calendar-check"></i> Attendance</a></li>
         </ul>
         <div class="logout"><a href="../index.html"><i class="fa-solid fa-right-from-bracket"></i> Log Out</a></div>
     </div>

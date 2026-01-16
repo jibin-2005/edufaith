@@ -11,6 +11,7 @@ require 'db.php';
 
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $student_id = intval($_POST['student_id']);
+    $delete_type = isset($_POST['delete_type']) ? $_POST['delete_type'] : 'soft'; // Default to soft
 
     // Validate student exists
     $check = $conn->prepare("SELECT id FROM users WHERE id = ? AND role = 'student'");
@@ -23,16 +24,33 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     }
     $check->close();
 
-    // Soft Delete: Set status to inactive
-    $stmt = $conn->prepare("UPDATE users SET status = 'inactive' WHERE id = ?");
-    $stmt->bind_param("i", $student_id);
-    
-    if ($stmt->execute()) {
-        echo json_encode(['success' => true, 'message' => 'Student account deactivated successfully']);
+    if ($delete_type === 'soft') {
+        // Soft Delete: Set status to inactive
+        $stmt = $conn->prepare("UPDATE users SET status = 'inactive' WHERE id = ?");
+        $stmt->bind_param("i", $student_id);
+        
+        if ($stmt->execute()) {
+            echo json_encode(['success' => true, 'message' => 'Student account deactivated successfully']);
+        } else {
+            echo json_encode(['success' => false, 'message' => 'Error: ' . $stmt->error]);
+        }
+        $stmt->close();
+    } elseif ($delete_type === 'hard') {
+        // Hard Delete: Permanent removal
+        // Note: attendance and other related records with CASCADE FKs will be removed automatically
+        $stmt = $conn->prepare("DELETE FROM users WHERE id = ?");
+        $stmt->bind_param("i", $student_id);
+        
+        if ($stmt->execute()) {
+            echo json_encode(['success' => true, 'message' => 'Student permanently deleted']);
+        } else {
+            echo json_encode(['success' => false, 'message' => 'Error: ' . $stmt->error]);
+        }
+        $stmt->close();
     } else {
-        echo json_encode(['success' => false, 'message' => 'Error: ' . $stmt->error]);
+        echo json_encode(['success' => false, 'message' => 'Invalid delete type']);
     }
-    $stmt->close();
+
     $conn->close();
 }
 ?>

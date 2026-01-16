@@ -18,22 +18,30 @@ $date = date("Y-m-d");
 $present_count = 0;
 $absent_count = 0;
 
-$sql_att_stats = "SELECT status, COUNT(*) as count FROM attendance WHERE attendance_date = '$date' GROUP BY status";
+$sql_att_stats = "SELECT status, COUNT(*) as count FROM attendance WHERE date = '$date' GROUP BY status";
 $result_att_stats = $conn->query($sql_att_stats);
-while ($row = $result_att_stats->fetch_assoc()) {
-    if ($row['status'] == 'present') $present_count = $row['count'];
-    if ($row['status'] == 'absent') $absent_count = $row['count'];
+if ($result_att_stats) {
+    while ($row = $result_att_stats->fetch_assoc()) {
+        if ($row['status'] == 'Present') $present_count = $row['count'];
+        if ($row['status'] == 'Absent') $absent_count = $row['count'];
+    }
 }
 
-// 2. Fetch Students for Attendance Table
-// We also fetch today's status if already marked
-$sql_list = "SELECT u.id, u.username, u.email, a.status 
-             FROM users u 
-             LEFT JOIN attendance a ON u.id = a.user_id AND a.attendance_date = '$date'
-             WHERE u.role = 'student' 
-             ORDER BY u.username ASC";
-$result_list = $conn->query($sql_list);
-
+// 2. Fetch Weekly Attendance for Chart (last 5 Sundays)
+$weekly_stats = [];
+$sql_weekly = "SELECT date, 
+               ROUND(SUM(CASE WHEN status = 'Present' THEN 1 ELSE 0 END) * 100.0 / COUNT(*), 1) as percentage 
+               FROM attendance 
+               WHERE class_id = (SELECT id FROM classes WHERE teacher_id = {$_SESSION['user_id']} LIMIT 1) 
+               GROUP BY date 
+               ORDER BY date DESC LIMIT 5";
+$res_weekly = $conn->query($sql_weekly);
+if ($res_weekly) {
+    while ($row = $res_weekly->fetch_assoc()) {
+        $weekly_stats[] = $row;
+    }
+}
+$weekly_stats = array_reverse($weekly_stats); // Chronological order
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -46,7 +54,9 @@ $result_list = $conn->query($sql_list);
         .radio-group { display: flex; gap: 10px; }
         .radio-label { cursor: pointer; display: flex; align-items: center; gap: 5px; font-size: 14px; }
         .success-msg { background: #d4edda; color: #155724; padding: 10px; border-radius: 6px; margin-bottom: 20px; }
+        .chart-panel { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
     </style>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
 
@@ -59,7 +69,8 @@ $result_list = $conn->query($sql_list);
         <ul class="menu">
             <li><a href="dashboard_teacher.php" class="active"><i class="fa-solid fa-table-columns"></i> Dashboard</a></li>
             <li><a href="my_class.php"><i class="fa-solid fa-user-group"></i> My Class</a></li>
-            <li><a href="attendance_history.php"><i class="fa-solid fa-clipboard-check"></i> Attendance</a></li>
+            <li><a href="attendance_teacher.php"><i class="fa-solid fa-calendar-check"></i> Attendance</a></li>
+            <li><a href="manage_leaves.php"><i class="fa-solid fa-envelope-open-text"></i> Leave Requests</a></li>
             <li><a href="manage_assignments.php"><i class="fa-solid fa-book"></i> Lesson Plans</a></li>
             <li><a href="manage_results.php"><i class="fa-solid fa-chart-line"></i> Results</a></li>
         </ul>
@@ -96,22 +107,13 @@ $result_list = $conn->query($sql_list);
                     <i class="fa-solid fa-users"></i>
                 </div>
             </div>
-            <div class="card">
+            <div class="card" style="grid-column: span 2;">
                 <div class="card-info">
-                    <h3><?php echo $present_count; ?></h3>
-                    <p>Present Today</p>
+                    <h3>78%</h3>
+                    <p>Class Average Attendance</p>
                 </div>
                 <div class="card-icon bg-green">
-                    <i class="fa-solid fa-check"></i>
-                </div>
-            </div>
-            <div class="card">
-                <div class="card-info">
-                    <h3><?php echo $absent_count; ?></h3>
-                    <p>Absent Today</p>
-                </div>
-                <div class="card-icon bg-purple">
-                    <i class="fa-solid fa-xmark"></i>
+                    <i class="fa-solid fa-chart-line"></i>
                 </div>
             </div>
         </div>
@@ -167,58 +169,53 @@ $result_list = $conn->query($sql_list);
             </div>
         </div>
 
-        <div class="panel">
+        <div class="panel chart-panel">
             <div class="panel-header">
-                <h3>Mark Attendance (<?php echo date("d-m-Y"); ?>)</h3>
+                <h3>Class Attendance Trend</h3>
             </div>
-            
-            <form action="../includes/save_attendance.php" method="POST">
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Student ID</th>
-                            <th>Student Name</th>
-                            <th>Status (Present / Absent)</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <?php if ($result_list->num_rows > 0): ?>
-                            <?php while($row = $result_list->fetch_assoc()): ?>
-                                <tr>
-                                    <td>#<?php echo $row['id']; ?></td>
-                                    <td><?php echo htmlspecialchars($row['username']); ?></td>
-                                    <td>
-                                        <div class="radio-group">
-                                            <label class="radio-label">
-                                                <input type="radio" name="attendance[<?php echo $row['id']; ?>]" value="present" 
-                                                    <?php echo ($row['status'] == 'present' || !$row['status']) ? 'checked' : ''; ?>> 
-                                                <span style="color:var(--primary);">Present</span>
-                                            </label>
-                                            <label class="radio-label">
-                                                <input type="radio" name="attendance[<?php echo $row['id']; ?>]" value="absent" 
-                                                    <?php echo ($row['status'] == 'absent') ? 'checked' : ''; ?>> 
-                                                <span style="color:#e74c3c;">Absent</span>
-                                            </label>
-                                        </div>
-                                    </td>
-                                </tr>
-                            <?php endwhile; ?>
-                        <?php else: ?>
-                            <tr>
-                                <td colspan="3" style="text-align:center;">No students found.</td>
-                            </tr>
-                        <?php endif; ?>
-                    </tbody>
-                </table>
-                <div style="margin-top: 20px; text-align: right;">
-                    <button type="submit" style="padding: 10px 20px; background: var(--primary); color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 16px;">
-                        <i class="fa-solid fa-save"></i> Save Attendance
-                    </button>
-                </div>
-            </form>
+            <div style="height: 300px;">
+                <canvas id="attendanceChart"></canvas>
+            </div>
         </div>
-        
+
     </div>
+
+    <script>
+        const ctx = document.getElementById('attendanceChart').getContext('2d');
+        const attendanceChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: <?php echo json_encode(array_column($weekly_stats, 'date')); ?>,
+                datasets: [{
+                    label: 'Attendance %',
+                    data: <?php echo json_encode(array_column($weekly_stats, 'percentage')); ?>,
+                    borderColor: '#2ecc71',
+                    backgroundColor: 'rgba(46, 204, 113, 0.1)',
+                    borderWidth: 3,
+                    fill: true,
+                    tension: 0.4,
+                    pointRadius: 5,
+                    pointBackgroundColor: '#2ecc71'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        max: 100,
+                        ticks: {
+                            callback: function(value) { return value + "%" }
+                        }
+                    }
+                },
+                plugins: {
+                    legend: { display: false }
+                }
+            }
+        });
+    </script>
 
 </body>
 </html>

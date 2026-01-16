@@ -27,6 +27,7 @@ $result = $conn->query("SELECT * FROM assignments ORDER BY due_date ASC");
         <ul class="menu">
             <li><a href="dashboard_student.php"><i class="fa-solid fa-table-columns"></i> Dashboard</a></li>
             <li><a href="#" class="active"><i class="fa-solid fa-book-bible"></i> My Lessons</a></li>
+            <li><a href="view_results.php"><i class="fa-solid fa-chart-line"></i> Results</a></li>
             <li><a href="achievements.php"><i class="fa-solid fa-star"></i> Achievements</a></li>
             <li><a href="calendar.php"><i class="fa-solid fa-calendar-check"></i> Calendar</a></li>
         </ul>
@@ -45,16 +46,23 @@ $result = $conn->query("SELECT * FROM assignments ORDER BY due_date ASC");
                     <tr>
                         <th>Title</th>
                         <th>Description</th>
-                        <th>Target Grade</th>
                         <th>Due Date</th>
                     </tr>
                 </thead>
                 <tbody>
-                    <?php while($row = $result->fetch_assoc()): ?>
+                    <?php 
+                    // Get Student Class
+                    $my_id = $_SESSION['user_id'];
+                    $c_res = $conn->query("SELECT class_id FROM users WHERE id = $my_id");
+                    $my_class = $c_res->fetch_assoc()['class_id'] ?? 0;
+                    
+                    // Filter assignments by class
+                    $result = $conn->query("SELECT * FROM assignments WHERE class_id = $my_class ORDER BY due_date ASC");
+                    
+                    while($row = $result->fetch_assoc()): ?>
                     <tr>
                         <td><?php echo htmlspecialchars($row['title']); ?></td>
                         <td><?php echo htmlspecialchars($row['description']); ?></td>
-                        <td><?php echo htmlspecialchars($row['target_grade']); ?></td>
                         <td style="color:red; font-weight:bold;"><?php echo date("M j, Y", strtotime($row['due_date'])); ?></td>
                     </tr>
                     <?php endwhile; ?>

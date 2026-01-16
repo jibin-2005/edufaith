@@ -1,0 +1,26 @@
+Table: assignments
+Field: id | Type: int(11)
+Field: class_id | Type: int(11)
+Field: assigned_by | Type: int(11)
+Field: title | Type: varchar(255)
+Field: description | Type: text
+Field: due_date | Type: date
+Field: created_by | Type: int(11)
+Field: created_at | Type: timestamp
+
+Create Table:
+CREATE TABLE `assignments` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `class_id` int(11) NOT NULL,
+  `assigned_by` int(11) NOT NULL,
+  `title` varchar(255) NOT NULL,
+  `description` text DEFAULT NULL,
+  `due_date` date NOT NULL,
+  `created_by` int(11) NOT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  KEY `class_id` (`class_id`),
+  KEY `created_by` (`created_by`),
+  CONSTRAINT `assignments_ibfk_1` FOREIGN KEY (`class_id`) REFERENCES `classes` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `assignments_ibfk_2` FOREIGN KEY (`created_by`) REFERENCES `users` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci

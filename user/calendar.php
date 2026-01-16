@@ -25,6 +25,7 @@ $result = $conn->query("SELECT * FROM events WHERE event_date >= CURDATE() ORDER
         <ul class="menu">
             <li><a href="dashboard_student.php"><i class="fa-solid fa-table-columns"></i> Dashboard</a></li>
             <li><a href="my_lessons.php"><i class="fa-solid fa-book-bible"></i> My Lessons</a></li>
+            <li><a href="view_results.php"><i class="fa-solid fa-chart-line"></i> Results</a></li>
             <li><a href="achievements.php"><i class="fa-solid fa-star"></i> Achievements</a></li>
             <li><a href="#" class="active"><i class="fa-solid fa-calendar-check"></i> Calendar</a></li>
         </ul>
