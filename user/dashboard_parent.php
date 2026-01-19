@@ -36,6 +36,11 @@ $children = $stmt->get_result();
         .btn-view { margin-left: auto; padding: 8px 16px; background: #f0f4f8; color: var(--primary); border: none; border-radius: 20px; font-weight: 600; cursor: pointer; text-decoration: none; font-size: 13px; }
         .btn-view:hover { background: var(--primary); color: white; }
     </style>
+    <script type="module">
+        import RealTimeSync from '../js/realtime_sync.js';
+        window.RealTimeSync = RealTimeSync;
+        RealTimeSync.checkAndTriggerFromURL();
+    </script>
 </head>
 <body>
 
@@ -142,5 +147,28 @@ $children = $stmt->get_result();
         
     </div>
 
+    <script type="module">
+        import RealTimeSync from '../js/realtime_sync.js';
+
+        // Listen for result updates (affects child view)
+        RealTimeSync.listen('result_updates', (data) => {
+            console.log('Child result updated, refreshing list...');
+            fetch(window.location.href)
+                .then(response => response.text())
+                .then(html => {
+                    const parser = new DOMParser();
+                    const doc = parser.parseFromString(html, 'text/html');
+                    const newList = doc.querySelector('div[style*="display: grid; grid-template-columns: 1fr;"]');
+                    if (newList) {
+                        document.querySelector('div[style*="display: grid; grid-template-columns: 1fr;"]').innerHTML = newList.innerHTML;
+                    }
+                });
+        });
+
+        RealTimeSync.listen('leave_updates', (data) => {
+            console.log('Child leave status updated, refreshing...');
+            window.location.reload();
+        });
+    </script>
 </body>
 </html>

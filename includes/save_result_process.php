@@ -48,7 +48,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $stmt->bind_param("isii", $student_id, $exam_type, $marks, $teacher_id);
 
     if ($stmt->execute()) {
-        header("Location: ../user/manage_results.php?exam=$exam_type&msg=success");
+        header("Location: ../user/manage_results.php?exam=$exam_type&msg=success&student_id=$student_id");
     } else {
         header("Location: ../user/manage_results.php?exam=$exam_type&error=db_error");
     }

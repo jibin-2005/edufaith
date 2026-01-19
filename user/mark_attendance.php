@@ -74,6 +74,10 @@ if ($class_id && $is_sunday) {
     <title>Mark Attendance</title>
     <link rel="stylesheet" href="../css/dashboard.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script type="module">
+        import RealTimeSync from '../js/realtime_sync.js';
+        RealTimeSync.checkAndTriggerFromURL();
+    </script>
     <style>
         .container { max-width: 800px; margin: 20px auto; padding: 20px; background: #fff; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
         .controls { display: flex; gap: 20px; margin-bottom: 20px; align-items: flex-end; }

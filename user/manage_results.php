@@ -28,6 +28,10 @@ $students = $stmt->get_result();
     <title>Manage Results | Teacher</title>
     <link rel="stylesheet" href="../css/dashboard.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script type="module">
+        import RealTimeSync from '../js/realtime_sync.js';
+        RealTimeSync.checkAndTriggerFromURL();
+    </script>
     <style>
         .tabs-container { background: white; border-radius: 8px; overflow: hidden; margin-bottom: 25px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
         .tabs { display: flex; border-bottom: 2px solid #f0f0f0; }

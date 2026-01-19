@@ -22,7 +22,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $stmt->bind_param("sii", $status, $teacher_id, $request_id);
 
     if ($stmt->execute()) {
-        header("Location: ../user/manage_leaves.php?msg=success");
+        // Fetch student_id for targeted sync
+        $s_stmt = $conn->prepare("SELECT user_id FROM leaves WHERE id = ?");
+        $s_stmt->bind_param("i", $request_id);
+        $s_stmt->execute();
+        $student_id = $s_stmt->get_result()->fetch_assoc()['user_id'];
+        $s_stmt->close();
+
+        header("Location: ../user/manage_leaves.php?msg=success&student_id=$student_id");
     } else {
         header("Location: ../user/manage_leaves.php?error=db_error");
     }

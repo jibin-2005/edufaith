@@ -14,6 +14,11 @@ require '../includes/db.php';
     <title>Student Portal | St. Thomas Church Kanamala</title>
     <link rel="stylesheet" href="../css/dashboard.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script type="module">
+        import RealTimeSync from '../js/realtime_sync.js';
+        window.RealTimeSync = RealTimeSync;
+        RealTimeSync.checkAndTriggerFromURL();
+    </script>
 </head>
 <body>
 
@@ -202,9 +207,39 @@ require '../includes/db.php';
                     <?php endif; ?>
                 </div>
             </div>
+            </div>
         </div>
         
     </div>
 
+    <script type="module">
+        import RealTimeSync from '../js/realtime_sync.js';
+
+        const studentId = <?php echo $_SESSION['user_id']; ?>;
+
+        RealTimeSync.listen('result_updates', (data) => {
+            if (data.student_id == studentId) {
+                console.log('Results updated, refreshing widget...');
+                fetch(window.location.href)
+                    .then(response => response.text())
+                    .then(html => {
+                        const parser = new DOMParser();
+                        const doc = parser.parseFromString(html, 'text/html');
+                        const newGrid = doc.querySelector('.panel:last-of-type div[style*="grid-template-columns: 1fr 1fr"]');
+                        if (newGrid) {
+                            document.querySelector('.panel:last-of-type div[style*="grid-template-columns: 1fr 1fr"]').innerHTML = newGrid.innerHTML;
+                        }
+                    });
+            }
+        });
+
+        RealTimeSync.listen('leave_updates', (data) => {
+            if (data.student_id == studentId) {
+                console.log('Leave status updated, refreshing...');
+                // You might have a specific leave widget, for now reload dashboard
+                window.location.reload();
+            }
+        });
+    </script>
 </body>
 </html>

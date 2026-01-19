@@ -28,6 +28,10 @@ $result = $stmt->get_result();
     <title>Manage Leave Requests | Teacher</title>
     <link rel="stylesheet" href="../css/dashboard.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script type="module">
+        import RealTimeSync from '../js/realtime_sync.js';
+        RealTimeSync.checkAndTriggerFromURL();
+    </script>
     <style>
         .badge { padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 700; text-transform: uppercase; }
         .pending { background: #fff4e5; color: #ffa117; }
