@@ -22,20 +22,37 @@ if ($check->num_rows === 0 || $check->fetch_assoc()['role'] !== 'student') {
 
 // Handle Update
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
-    $username = $_POST['fullname'];
-    $email = $_POST['email'];
-    $class_id = !empty($_POST['class_id']) ? $_POST['class_id'] : NULL;
+    require '../includes/validation.php';
+    $validator = new Validator();
     
-    // Teachers can update name, email, and class
-    $stmt = $conn->prepare("UPDATE users SET username = ?, email = ?, class_id = ? WHERE id = ?");
-    $stmt->bind_param("ssii", $username, $email, $class_id, $user_id);
-
-    if ($stmt->execute()) {
-        $message = "Student details updated successfully.";
-    } else {
-        $message = "Error: " . $stmt->error;
+    // Get and sanitize input
+    $username = $validator->sanitize($_POST['fullname'] ?? '');
+    $email = $validator->sanitize($_POST['email'] ?? '');
+    $class_id = !empty($_POST['class_id']) ? intval($_POST['class_id']) : NULL;
+    
+    // Validate fields
+    $validator->validateFullName($username, 'Full Name');
+    $validator->validateEmail($email, 'Email');
+    
+    // Check if email already exists (excluding current user)
+    if ($validator->isValid()) {
+        $validator->checkEmailExists($email, $conn, $user_id, 'Email');
     }
-    $stmt->close();
+    
+    if ($validator->isValid()) {
+        // Teachers can update name, email, and class
+        $stmt = $conn->prepare("UPDATE users SET username = ?, email = ?, class_id = ? WHERE id = ?");
+        $stmt->bind_param("ssii", $username, $email, $class_id, $user_id);
+
+        if ($stmt->execute()) {
+            $message = "Student details updated successfully.";
+        } else {
+            $message = "Error: " . $stmt->error;
+        }
+        $stmt->close();
+    } else {
+        $message = "Error: " . $validator->getFirstError();
+    }
 }
 
 // Fetch current data
@@ -125,5 +142,6 @@ $stmt->close();
             </form>
         </div>
     </div>
+    <script src="../js/form_validation.js"></script>
 </body>
 </html>

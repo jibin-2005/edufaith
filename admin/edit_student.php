@@ -27,20 +27,42 @@ $check->close();
 
 // Handle Update
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
-    $username = $_POST['fullname'];
-    $email = $_POST['email'];
-    $class_id = !empty($_POST['class_id']) ? $_POST['class_id'] : NULL;
-    $status = $_POST['status'];
+    require '../includes/validation.php';
+    $validator = new Validator();
     
-    $stmt = $conn->prepare("UPDATE users SET username = ?, email = ?, class_id = ?, status = ? WHERE id = ?");
-    $stmt->bind_param("ssisi", $username, $email, $class_id, $status, $user_id);
-
-    if ($stmt->execute()) {
-        $message = "Student details updated successfully.";
-    } else {
-        $message = "Error: " . $stmt->error;
+    // Get and sanitize input
+    $username = $validator->sanitize($_POST['fullname'] ?? '');
+    $email = $validator->sanitize($_POST['email'] ?? '');
+    $class_id = !empty($_POST['class_id']) ? intval($_POST['class_id']) : NULL;
+    $status = $validator->sanitize($_POST['status'] ?? 'active');
+    
+    // Validate fields
+    $validator->validateFullName($username, 'Full Name');
+    $validator->validateEmail($email, 'Email');
+    
+    // Check if email already exists (excluding current user)
+    if ($validator->isValid()) {
+        $validator->checkEmailExists($email, $conn, $user_id, 'Email');
     }
-    $stmt->close();
+    
+    // Validate status
+    if (!in_array($status, ['active', 'inactive'])) {
+        $validator->addError('Status', 'Invalid status selected');
+    }
+    
+    if ($validator->isValid()) {
+        $stmt = $conn->prepare("UPDATE users SET username = ?, email = ?, class_id = ?, status = ? WHERE id = ?");
+        $stmt->bind_param("ssisi", $username, $email, $class_id, $status, $user_id);
+
+        if ($stmt->execute()) {
+            $message = "Student details updated successfully.";
+        } else {
+            $message = "Error: " . $stmt->error;
+        }
+        $stmt->close();
+    } else {
+        $message = "Error: " . $validator->getFirstError();
+    }
 }
 
 // Fetch current data
@@ -137,5 +159,6 @@ $classes = $conn->query("SELECT id, class_name FROM classes ORDER BY class_name 
             </form>
         </div>
     </div>
+    <script src="../js/form_validation.js"></script>
 </body>
 </html>

@@ -71,6 +71,8 @@ $overall_percent = $total > 0 ? round(($present / $total) * 100, 1) : 0;
             <li><a href="leave_student.php"><i class="fa-solid fa-envelope-open-text"></i> Leave Requests</a></li>
             <li><a href="my_lessons.php"><i class="fa-solid fa-book-bible"></i> My Lessons</a></li>
             <li><a href="view_results.php"><i class="fa-solid fa-chart-line"></i> Results</a></li>
+            <li><a href="bulletins.php"><i class="fa-solid fa-bullhorn"></i> Bulletins</a></li>
+            <li><a href="events.php"><i class="fa-solid fa-calendar-days"></i> Events</a></li>
         </ul>
         <div class="logout"><a href="../index.html"><i class="fa-solid fa-right-from-bracket"></i> Log Out</a></div>
     </div>

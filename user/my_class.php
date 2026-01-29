@@ -67,10 +67,13 @@ $result = $conn->query($sql);
         <div class="logo"><i class="fa-solid fa-church"></i> <span>St. Thomas Church</span></div>
         <ul class="menu">
             <li><a href="dashboard_teacher.php"><i class="fa-solid fa-table-columns"></i> Dashboard</a></li>
-            <li><a href="#" class="active"><i class="fa-solid fa-user-group"></i> My Class</a></li>
-            <li><a href="attendance_history.php"><i class="fa-solid fa-clipboard-check"></i> Attendance</a></li>
+            <li><a href="my_class.php" class="active"><i class="fa-solid fa-user-group"></i> My Class</a></li>
+            <li><a href="attendance_teacher.php"><i class="fa-solid fa-calendar-check"></i> Attendance</a></li>
+            <li><a href="manage_leaves.php"><i class="fa-solid fa-envelope-open-text"></i> Leave Requests</a></li>
             <li><a href="manage_assignments.php"><i class="fa-solid fa-book"></i> Lesson Plans</a></li>
             <li><a href="manage_results.php"><i class="fa-solid fa-chart-line"></i> Results</a></li>
+            <li><a href="bulletins.php"><i class="fa-solid fa-bullhorn"></i> Bulletins</a></li>
+            <li><a href="events.php"><i class="fa-solid fa-calendar-days"></i> Events</a></li>
         </ul>
         <div class="logout"><a href="../index.html"><i class="fa-solid fa-right-from-bracket"></i> Log Out</a></div>
     </div>

@@ -52,6 +52,8 @@ $result = $stmt->get_result();
             <li><a href="manage_leaves.php" class="active"><i class="fa-solid fa-envelope-open-text"></i> Leave Requests</a></li>
             <li><a href="manage_assignments.php"><i class="fa-solid fa-book"></i> Lesson Plans</a></li>
             <li><a href="manage_results.php"><i class="fa-solid fa-chart-line"></i> Results</a></li>
+            <li><a href="bulletins.php"><i class="fa-solid fa-bullhorn"></i> Bulletins</a></li>
+            <li><a href="events.php"><i class="fa-solid fa-calendar-days"></i> Events</a></li>
         </ul>
         <div class="logout"><a href="../index.html"><i class="fa-solid fa-right-from-bracket"></i> Log Out</a></div>
     </div>

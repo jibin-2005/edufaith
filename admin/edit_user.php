@@ -17,20 +17,43 @@ if ($user_id <= 0) {
 
 // Handle Update
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
-    $username = $_POST['fullname'];
-    $email = $_POST['email'];
-    $role = $_POST['role'];
-    $class_id = !empty($_POST['class_id']) ? $_POST['class_id'] : NULL;
-
-    $stmt = $conn->prepare("UPDATE users SET username = ?, email = ?, role = ?, class_id = ? WHERE id = ?");
-    $stmt->bind_param("sssii", $username, $email, $role, $class_id, $user_id);
-
-    if ($stmt->execute()) {
-        $message = "Success: User updated successfully.";
-    } else {
-        $message = "Error: " . $stmt->error;
+    require 'validation.php';
+    $validator = new Validator();
+    
+    // Get and sanitize input
+    $username = $validator->sanitize($_POST['fullname'] ?? '');
+    $email = $validator->sanitize($_POST['email'] ?? '');
+    $role = $validator->sanitize($_POST['role'] ?? '');
+    $class_id = !empty($_POST['class_id']) ? intval($_POST['class_id']) : NULL;
+    
+    // Validate fields
+    $validator->validateFullName($username, 'Full Name');
+    $validator->validateEmail($email, 'Email');
+    $validator->validateRole($role, ['student', 'teacher', 'parent', 'admin'], 'Role');
+    
+    // Check if email already exists (excluding current user)
+    if ($validator->isValid()) {
+        $validator->checkEmailExists($email, $conn, $user_id, 'Email');
     }
-    $stmt->close();
+    
+    // Validate class_id for students
+    if ($role === 'student' && !empty($class_id)) {
+        $validator->validateClassId($class_id, $conn, false, 'Class');
+    }
+    
+    if ($validator->isValid()) {
+        $stmt = $conn->prepare("UPDATE users SET username = ?, email = ?, role = ?, class_id = ? WHERE id = ?");
+        $stmt->bind_param("sssii", $username, $email, $role, $class_id, $user_id);
+
+        if ($stmt->execute()) {
+            $message = "Success: User updated successfully.";
+        } else {
+            $message = "Error: " . $stmt->error;
+        }
+        $stmt->close();
+    } else {
+        $message = "Error: " . $validator->getFirstError();
+    }
 }
 
 // Fetch current data
@@ -151,5 +174,6 @@ $stmt->close();
             toggleClassField();
         </script>
     </div>
+    <script src="../js/form_validation.js"></script>
 </body>
 </html>

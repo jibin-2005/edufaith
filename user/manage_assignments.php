@@ -67,6 +67,8 @@ $classes = $conn->query("SELECT id, class_name FROM classes ORDER BY class_name 
             <li><a href="manage_leaves.php"><i class="fa-solid fa-envelope-open-text"></i> Leave Requests</a></li>
             <li><a href="manage_assignments.php" class="active"><i class="fa-solid fa-book"></i> Lesson Plans</a></li>
             <li><a href="manage_results.php"><i class="fa-solid fa-chart-line"></i> Results</a></li>
+            <li><a href="bulletins.php"><i class="fa-solid fa-bullhorn"></i> Bulletins</a></li>
+            <li><a href="events.php"><i class="fa-solid fa-calendar-days"></i> Events</a></li>
         </ul>
         <div class="logout"><a href="../index.html"><i class="fa-solid fa-right-from-bracket"></i> Log Out</a></div>
     </div>
@@ -142,6 +144,7 @@ $classes = $conn->query("SELECT id, class_name FROM classes ORDER BY class_name 
                         </td>
                         <td><?php echo date("M j, Y", strtotime($row['due_date'])); ?></td>
                         <td>
+                            <a href="view_submissions.php?id=<?php echo $row['id']; ?>" class="btn-download" style="color:var(--primary); margin-right:10px;" title="View Submissions"><i class="fa-solid fa-eye"></i></a>
                             <a href="?delete=<?php echo $row['id']; ?>" class="btn-delete" onclick="return confirm('Delete?');"><i class="fa-solid fa-trash"></i></a>
                         </td>
                     </tr>

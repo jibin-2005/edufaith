@@ -56,7 +56,8 @@ require '../includes/db.php';
         </div>
     </div>
 
-    <!-- Firebase Scripts -->
+    <!-- Validation & Firebase Scripts -->
+    <script src="../js/form_validation.js"></script>
     <script type="module" src="../js/add_user_sync.js"></script>
 </body>
 </html>

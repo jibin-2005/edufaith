@@ -196,5 +196,6 @@ $all_students = $conn->query("SELECT id, username FROM users WHERE role = 'stude
             }
         });
     </script>
+    <script src="../js/form_validation.js"></script>
 </body>
 </html>

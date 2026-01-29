@@ -38,9 +38,10 @@ $children = $conn->query($sql);
         <div class="logo"><i class="fa-solid fa-church"></i> <span>St. Thomas Church</span></div>
         <ul class="menu">
             <li><a href="dashboard_parent.php"><i class="fa-solid fa-table-columns"></i> Dashboard</a></li>
-            <li><a href="my_children.php" class="active"><i class="fa-solid fa-child-reaching"></i> My Children</a></li>
-            <li><a href="calendar.php"><i class="fa-solid fa-calendar-days"></i> Events</a></li>
-            <li><a href="messages.php"><i class="fa-solid fa-message"></i> Messages</a></li>
+            <li><a href="attendance_parent.php"><i class="fa-solid fa-calendar-check"></i> Child Attendance</a></li>
+            <li><a href="my_children.php" class="active"><i class="fa-solid fa-users"></i> My Children</a></li>
+            <li><a href="bulletins.php"><i class="fa-solid fa-bullhorn"></i> Bulletins</a></li>
+            <li><a href="events.php"><i class="fa-solid fa-calendar-days"></i> Events</a></li>
         </ul>
         <div class="logout"><a href="../index.html"><i class="fa-solid fa-right-from-bracket"></i> Log Out</a></div>
     </div>

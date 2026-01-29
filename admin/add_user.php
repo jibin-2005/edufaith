@@ -232,6 +232,7 @@ if ($classes_result) {
         toggleClassField();
     </script>
 
+    <script src="../js/form_validation.js"></script>
     <script type="module" src="../js/add_user_sync.js"></script>
 </body>
 </html>
