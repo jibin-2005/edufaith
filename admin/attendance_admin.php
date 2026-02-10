@@ -13,7 +13,6 @@ $date_filter = $_GET['date'] ?? '';
 // Analytics Queries
 $total_present = $conn->query("SELECT COUNT(*) as count FROM attendance WHERE status = 'Present'")->fetch_assoc()['count'];
 $total_absent  = $conn->query("SELECT COUNT(*) as count FROM attendance WHERE status = 'Absent'")->fetch_assoc()['count'];
-$total_late    = $conn->query("SELECT COUNT(*) as count FROM attendance WHERE status = 'Late'")->fetch_assoc()['count'];
 $total_approved_leave = $conn->query("SELECT COUNT(*) as count FROM attendance WHERE status = 'Leave Approved'")->fetch_assoc()['count'];
 $total_pending_leave  = $conn->query("SELECT COUNT(*) as count FROM attendance WHERE status = 'Pending Leave'")->fetch_assoc()['count'];
 
@@ -29,12 +28,34 @@ $sql = "SELECT a.*, u.username as student_name, c.class_name, t.username as teac
         JOIN users t ON a.teacher_id = t.id
         WHERE 1=1";
 
-if ($class_filter) $sql .= " AND a.class_id = $class_filter";
-if ($teacher_filter) $sql .= " AND a.teacher_id = $teacher_filter";
-if ($date_filter) $sql .= " AND a.date = '$date_filter'";
+$params = [];
+$types = '';
+
+if ($class_filter !== '') {
+    $sql .= " AND a.class_id = ?";
+    $params[] = (int)$class_filter;
+    $types .= 'i';
+}
+if ($teacher_filter !== '') {
+    $sql .= " AND a.teacher_id = ?";
+    $params[] = (int)$teacher_filter;
+    $types .= 'i';
+}
+if ($date_filter !== '' && preg_match('/^\d{4}-\d{2}-\d{2}$/', $date_filter)) {
+    $sql .= " AND a.date = ?";
+    $params[] = $date_filter;
+    $types .= 's';
+} else {
+    $date_filter = '';
+}
 
 $sql .= " ORDER BY a.date DESC, c.class_name ASC LIMIT 100";
-$result = $conn->query($sql);
+$stmt = $conn->prepare($sql);
+if (!empty($types)) {
+    $stmt->bind_param($types, ...$params);
+}
+$stmt->execute();
+$result = $stmt->get_result();
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -49,9 +70,8 @@ $result = $conn->query($sql);
         .badge { padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 700; text-transform: uppercase; }
         .bg-present { background: #eafaf1; color: #2ecc71; }
         .bg-absent { background: #fdf2f2; color: #e74c3c; }
-        .bg-late { background: #fef9e7; color: #f1c40f; }
-        .bg-approved\.leave { background: #eafaf1; color: #2ecc71; }
-        .bg-pending\.leave { background: #fff4e5; color: #ffa117; }
+        .bg-leave-approved { background: #eafaf1; color: #2ecc71; }
+        .bg-pending-leave { background: #fff4e5; color: #ffa117; }
     </style>
 </head>
 <body>
@@ -65,7 +85,7 @@ $result = $conn->query($sql);
             <li><a href="manage_parents.php"><i class="fa-solid fa-users"></i> Parents</a></li>
             <li><a href="attendance_admin.php" class="active"><i class="fa-solid fa-calendar-check"></i> Attendance</a></li>
         </ul>
-        <div class="logout"><a href="../index.html"><i class="fa-solid fa-right-from-bracket"></i> Log Out</a></div>
+        <div class="logout"><a href="../includes/logout.php"><i class="fa-solid fa-right-from-bracket"></i> Log Out</a></div>
     </div>
 
     <div class="main-content">
@@ -75,9 +95,9 @@ $result = $conn->query($sql);
         </div>
 
         <!-- Analytics Cards -->
-        <div class="stat-grid" style="grid-template-columns: repeat(5, 1fr);">
+        <div class="stat-grid" style="grid-template-columns: repeat(4, 1fr);">
             <div class="card">
-                <div class="card-info"><h3><?php echo $total_present + $total_absent + $total_late + $total_approved_leave + $total_pending_leave; ?></h3><p>Total Records</p></div>
+                <div class="card-info"><h3><?php echo $total_present + $total_absent + $total_approved_leave + $total_pending_leave; ?></h3><p>Total Records</p></div>
                 <div class="card-icon bg-blue"><i class="fa-solid fa-database"></i></div>
             </div>
             <div class="card">
@@ -88,10 +108,7 @@ $result = $conn->query($sql);
                 <div class="card-info"><h3 style="color:#e74c3c;"><?php echo $total_absent; ?></h3><p>Absent</p></div>
                 <div class="card-icon bg-purple"><i class="fa-solid fa-user-xmark"></i></div>
             </div>
-            <div class="card">
-                <div class="card-info"><h3 style="color:#f1c40f;"><?php echo $total_late; ?></h3><p>Late</p></div>
-                <div class="card-icon bg-orange"><i class="fa-solid fa-clock"></i></div>
-            </div>
+
             <div class="card">
                 <div class="card-info"><h3><?php echo $total_approved_leave; ?></h3><p>L. Approved</p></div>
                 <div class="card-icon bg-present"><i class="fa-solid fa-envelope-open"></i></div>
@@ -147,7 +164,7 @@ $result = $conn->query($sql);
                                 <td><?php echo htmlspecialchars($row['class_name']); ?></td>
                                 <td><?php echo htmlspecialchars($row['teacher_name']); ?></td>
                                 <td>
-                                    <span class="badge bg-<?php echo strtolower(str_replace(' ', '.', $row['status'])); ?>">
+                                    <span class="badge bg-<?php echo strtolower(str_replace(' ', '-', $row['status'])); ?>">
                                         <?php echo $row['status']; ?>
                                     </span>
                                 </td>
@@ -162,3 +179,7 @@ $result = $conn->query($sql);
     </div>
 </body>
 </html>
+<?php
+$stmt->close();
+$conn->close();
+?>

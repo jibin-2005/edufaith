@@ -13,12 +13,53 @@ $parent_count  = $conn->query("SELECT COUNT(*) as count FROM users WHERE role = 
 $total_users   = $conn->query("SELECT COUNT(*) as count FROM users")->fetch_assoc()['count'];
 
 // Count Pending Leaves
-$leave_sql = "SELECT COUNT(*) as count FROM leaves WHERE status = 'pending'";
+$leave_sql = "SELECT COUNT(*) as count FROM leave_requests WHERE status = 'pending'";
 $leave_count = $conn->query($leave_sql)->fetch_assoc()['count'];
 
 // Count Upcoming Events
 $event_sql = "SELECT COUNT(*) as count FROM events WHERE event_date >= CURDATE()";
 $event_count = $conn->query($event_sql)->fetch_assoc()['count'];
+
+// Attendance Trend (Last 5 Sundays)
+$trend_sql = "SELECT date, COUNT(*) as total, SUM(CASE WHEN status = 'Present' THEN 1 ELSE 0 END) as present 
+              FROM attendance GROUP BY date ORDER BY date DESC LIMIT 5";
+$trend_res = $conn->query($trend_sql);
+$trend_labels = []; $trend_data = [];
+if ($trend_res) {
+    while($row = $trend_res->fetch_assoc()) {
+        $trend_labels[] = date('M j', strtotime($row['date']));
+        $trend_data[] = $row['total'] > 0 ? round(($row['present'] / $row['total']) * 100) : 0;
+    }
+}
+$trend_labels = array_reverse($trend_labels);
+$trend_data = array_reverse($trend_data);
+
+// Class Performance
+$perf_sql = "SELECT c.class_name, AVG(r.marks) as avg_marks 
+             FROM results r 
+             JOIN users u ON r.student_id = u.id 
+             JOIN classes c ON u.class_id = c.id 
+             GROUP BY c.id ORDER BY avg_marks DESC LIMIT 8";
+$perf_res = $conn->query($perf_sql);
+$perf_labels = []; $perf_data = [];
+if ($perf_res) {
+    while($row = $perf_res->fetch_assoc()) {
+        $perf_labels[] = $row['class_name'];
+        $perf_data[] = round($row['avg_marks'], 1);
+    }
+}
+
+// Key Performance Indicators (KPIs)
+$avg_attendance = $conn->query("SELECT ROUND(AVG(CASE WHEN status='Present' THEN 100 ELSE 0 END)) as rate FROM attendance")->fetch_assoc()['rate'] ?? 0;
+$avg_marks = $conn->query("SELECT ROUND(AVG(marks), 1) as avg FROM results")->fetch_assoc()['avg'] ?? 0;
+
+// Profile picture
+$profile_picture = null;
+$stmt_pic = $conn->prepare("SELECT profile_picture FROM users WHERE id = ?");
+$stmt_pic->bind_param("i", $_SESSION['user_id']);
+$stmt_pic->execute();
+$profile_picture = $stmt_pic->get_result()->fetch_assoc()['profile_picture'] ?? null;
+$stmt_pic->close();
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -46,9 +87,11 @@ $event_count = $conn->query($event_sql)->fetch_assoc()['count'];
             <li><a href="manage_events.php"><i class="fa-solid fa-calendar-days"></i> Events</a></li>
             <li><a href="manage_bulletins.php"><i class="fa-solid fa-bullhorn"></i> Bulletins</a></li>
             <li><a href="attendance_admin.php"><i class="fa-solid fa-calendar-check"></i> Attendance</a></li>
+            <li><a href="messages_admin.php"><i class="fa-solid fa-envelope"></i> Messages</a></li>
+            <li><a href="../user/profile.php"><i class="fa-solid fa-user-gear"></i> Profile</a></li>
         </ul>
         <div class="logout">
-            <a href="../index.html"><i class="fa-solid fa-right-from-bracket"></i> Log Out</a>
+            <a href="../includes/logout.php"><i class="fa-solid fa-right-from-bracket"></i> Log Out</a>
         </div>
     </div>
 
@@ -57,87 +100,126 @@ $event_count = $conn->query($event_sql)->fetch_assoc()['count'];
         
         <div class="top-bar">
             <div class="welcome-text">
-                <h2>Welcome back, <?php echo htmlspecialchars($_SESSION['username']); ?></h2>
-                <p>Overview & Analytics</p>
+                <h2>Welcome back, <?php echo htmlspecialchars($_SESSION['username']); ?> <span class="badge-live"><span class="pulse-dot"></span>Live Analytics</span></h2>
+                <p>Overview & Performance Metrics</p>
             </div>
             <div class="user-profile">
                 <span><?php echo htmlspecialchars($_SESSION['username']); ?></span>
                 <div class="user-img">
-                    <img src="https://ui-avatars.com/api/?name=<?php echo urlencode($_SESSION['username']); ?>&background=random" alt="Admin">
+                    <?php if (!empty($profile_picture) && file_exists('../' . $profile_picture)): ?>
+                        <img src="../<?php echo htmlspecialchars($profile_picture); ?>" alt="Admin">
+                    <?php else: ?>
+                        <img src="https://ui-avatars.com/api/?name=<?php echo urlencode($_SESSION['username']); ?>&background=random" alt="Admin">
+                    <?php endif; ?>
                 </div>
             </div>
         </div>
 
-        <!-- 1. KEY METRICS WIDGETS (Correctly Grouped) -->
-        <div class="grid-container">
+        <!-- 1. KEY METRICS WIDGETS -->
+        <div class="grid-container" style="grid-template-columns: repeat(5, 1fr);">
             <div class="card">
                 <div class="card-info">
                     <h3><?php echo $student_count; ?></h3>
-                    <p>Total Students</p>
+                    <p>Students</p>
                 </div>
                 <div class="card-icon bg-blue"><i class="fa-solid fa-user-graduate"></i></div>
             </div>
             <div class="card">
                 <div class="card-info">
                     <h3><?php echo $teacher_count; ?></h3>
-                    <p>Total Teachers</p>
+                    <p>Teachers</p>
                 </div>
                 <div class="card-icon bg-purple"><i class="fa-solid fa-chalkboard-user"></i></div>
             </div>
             <div class="card">
                 <div class="card-info">
-                    <h3><?php echo $parent_count; ?></h3>
-                    <p>Total Parents</p>
+                    <h3><?php echo $avg_attendance; ?>%</h3>
+                    <p>Avg Attn.</p>
                 </div>
-                <div class="card-icon bg-green"><i class="fa-solid fa-users"></i></div>
+                <div class="card-icon bg-green"><i class="fa-solid fa-calendar-check"></i></div>
             </div>
             <div class="card">
                 <div class="card-info">
-                    <h3><?php echo $total_users; ?></h3>
-                    <p>Total Users</p>
+                    <h3><?php echo $avg_marks; ?></h3>
+                    <p>Avg Marks</p>
                 </div>
-                <div class="card-icon bg-orange"><i class="fa-solid fa-database"></i></div>
+                <div class="card-icon bg-orange"><i class="fa-solid fa-star"></i></div>
+            </div>
+            <div class="card">
+                <div class="card-info">
+                    <h3><?php echo $event_count; ?></h3>
+                    <p>Events</p>
+                </div>
+                <div class="card-icon bg-blue" style="background:#e8f4fd; color:#3498db;"><i class="fa-solid fa-calendar-days"></i></div>
             </div>
         </div>
 
-        <!-- 2. ANALYTICS & QUICK ACTIONS (Addressing "Empty Space") -->
-        <div class="section-grid">
-            
-            <!-- LEFT: Analytics Chart -->
+        <!-- 2. ANALYTICS GRAPHS -->
+        <div class="analytics-grid">
             <div class="panel">
                 <div class="panel-header">
-                    <h3>User Distribution</h3>
+                    <h3>Attendance Trend</h3>
                 </div>
-                <div style="position: relative; height:250px; width:100%; display:flex; justify-content:center;">
-                    <canvas id="userChart"></canvas>
-                </div>
+                <div style="height:250px;"><canvas id="attendanceChart"></canvas></div>
             </div>
-
-            <!-- RIGHT: Quick Shortcuts & Pending Leaves -->
             <div class="panel">
                 <div class="panel-header">
-                    <h3>Pending Approvals (<?php echo $leave_count; ?>)</h3>
-                     <a href="#" style="font-size:0.8rem; color:var(--primary);">View All</a>
+                    <h3>Class Performance</h3>
+                </div>
+                <div style="height:250px;"><canvas id="performanceChart"></canvas></div>
+            </div>
+            <div class="panel">
+                <div class="panel-header">
+                    <h3>User Base</h3>
+                </div>
+                <div style="height:250px;"><canvas id="userChart"></canvas></div>
+            </div>
+        </div>
+
+        <!-- 3. OPERATIONAL LISTS -->
+        <div class="operational-grid">
+            <!-- Recent Marks Entry -->
+            <div class="panel">
+                <div class="panel-header">
+                    <h3>Recent Marks Entry</h3>
+                     <a href="manage_results.php" style="font-size:0.8rem; color:var(--primary);">View All</a>
                 </div>
                 <ul style="list-style:none;">
                 <?php
-                    $l_sql = "SELECT l.id, u.username, l.reason, l.start_date FROM leaves l JOIN users u ON l.user_id = u.id WHERE l.status='pending' LIMIT 3";
+                    $r_sql = "SELECT u.username, r.marks, r.updated_at FROM results r JOIN users u ON r.student_id = u.id ORDER BY r.updated_at DESC LIMIT 4";
+                    $r_res = $conn->query($r_sql);
+                    if ($r_res && $r_res->num_rows > 0) {
+                        while($row = $r_res->fetch_assoc()) {
+                            echo "<li style='border-bottom:1px solid #f0f0f0; padding:12px 0; display:flex; justify-content:space-between; align-items:center;'>";
+                            echo "<div><strong>".htmlspecialchars($row['username'])."</strong><br><span style='font-size:0.8rem; color:#777;'>Score: ".$row['marks']."</span></div>";
+                            echo "<span style='font-size:0.8rem; color:#aaa;'>".date('M j', strtotime($row['updated_at']))."</span>";
+                            echo "</li>";
+                        }
+                    } else { echo "<li style='color:#999; text-align:center; padding:20px;'>No records found.</li>"; }
+                ?>
+                </ul>
+            </div>
+
+            <!-- Pending Leaves -->
+            <div class="panel">
+                <div class="panel-header">
+                    <h3>Pending Approvals (<?php echo $leave_count; ?>)</h3>
+                     <a href="attendance_admin.php" style="font-size:0.8rem; color:var(--primary);">View All</a>
+                </div>
+                <ul style="list-style:none;">
+                <?php
+                    $l_sql = "SELECT l.id, u.username, l.reason FROM leaves l JOIN users u ON l.user_id = u.id WHERE l.status='pending' LIMIT 4";
                     $l_res = $conn->query($l_sql);
-                    if ($l_res->num_rows > 0) {
+                    if ($l_res && $l_res->num_rows > 0) {
                         while($row = $l_res->fetch_assoc()) {
                             echo "<li style='border-bottom:1px solid #f0f0f0; padding:12px 0; display:flex; justify-content:space-between; align-items:center;'>";
                             echo "<div><strong>".htmlspecialchars($row['username'])."</strong><br><span style='font-size:0.8rem; color:#777;'>".htmlspecialchars($row['reason'])."</span></div>";
                             echo "<button style='padding:5px 10px; background:#e8f5e9; color:green; border:none; border-radius:4px; font-size:0.8rem;'>Review</button>";
                             echo "</li>";
                         }
-                    } else {
-                        echo "<li style='color:#999; text-align:center; padding:20px;'>No pending requests.</li>";
-                    }
+                    } else { echo "<li style='color:#999; text-align:center; padding:20px;'>No pending requests.</li>"; }
                 ?>
                 </ul>
-                <div style="margin-top:20px;">
-                    <button style="width:100%; padding:12px; border:1px dashed #ccc; background:#fafafa; color:#555; border-radius:8px; cursor:pointer;" onclick="alert('Quick Actions Menu')">+ Quick Action</button>
-                </div>
             </div>
         </div>
 
@@ -151,19 +233,17 @@ $event_count = $conn->query($event_sql)->fetch_assoc()['count'];
                 <thead>
                     <tr>
                         <th>Title</th>
-                        <th>Target Group</th>
                         <th>Published Date</th>
                     </tr>
                 </thead>
                 <tbody>
                     <?php
-                    $ann_sql = "SELECT title, target_role, created_at FROM announcements ORDER BY created_at DESC LIMIT 3";
+                    $ann_sql = "SELECT title, created_at FROM announcements ORDER BY created_at DESC LIMIT 3";
                     $ann_res = $conn->query($ann_sql);
                     if ($ann_res->num_rows > 0) {
                         while($row = $ann_res->fetch_assoc()) {
                             echo "<tr>";
                             echo "<td>" . htmlspecialchars($row['title']) . "</td>";
-                            echo "<td><span class='status present'>" . ucfirst($row['target_role']) . "</span></td>";
                             echo "<td>" . date("M j, Y", strtotime($row['created_at'])) . "</td>";
                             echo "</tr>";
                         }
@@ -211,6 +291,39 @@ $event_count = $conn->query($event_sql)->fetch_assoc()['count'];
                 cutout: '70%'
             }
         });
+
+        // Attendance Trend Chart
+        new Chart(document.getElementById('attendanceChart'), {
+            type: 'line',
+            data: {
+                labels: <?php echo json_encode($trend_labels); ?>,
+                datasets: [{
+                    label: 'Attendance %',
+                    data: <?php echo json_encode($trend_data); ?>,
+                    borderColor: '#3498db',
+                    tension: 0.4,
+                    fill: true,
+                    backgroundColor: 'rgba(52, 152, 219, 0.1)'
+                }]
+            },
+            options: { maintainAspectRatio: false, plugins: { legend: { display: false } } }
+        });
+
+        // Performance Chart
+        new Chart(document.getElementById('performanceChart'), {
+            type: 'bar',
+            data: {
+                labels: <?php echo json_encode($perf_labels); ?>,
+                datasets: [{
+                    label: 'Avg Marks',
+                    data: <?php echo json_encode($perf_data); ?>,
+                    backgroundColor: '#2ecc71',
+                    borderRadius: 5
+                }]
+            },
+            options: { maintainAspectRatio: false, plugins: { legend: { display: false } } }
+        });
     </script>
-</body>
+    <script>\n        setInterval(() => {\n            window.location.reload();\n        }, 60000);\n    </script>\n</body>
 </html>
+

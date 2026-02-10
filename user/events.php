@@ -5,8 +5,45 @@ if (!isset($_SESSION['user_id'])) {
     exit;
 }
 require '../includes/db.php';
+require '../includes/validation_helper.php';
 
 $role = $_SESSION['role'];
+
+// Handle New Event (Teacher Only)
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_event']) && $role === 'teacher') {
+    $title = $_POST['title'];
+    $description = $_POST['description'];
+    $event_date = $_POST['event_date'];
+
+    // Validation
+    $errors = [];
+    $valTitle = Validator::validateTitle($title, 'Event Title');
+    if ($valTitle !== true) $errors[] = $valTitle;
+
+    $valDesc = Validator::validateDescription($description, 'Description');
+    if ($valDesc !== true) $errors[] = $valDesc;
+
+    $valDate = Validator::validateDate($event_date, 'Event Date', 'future_only');
+    if ($valDate !== true) $errors[] = $valDate;
+
+    if (empty($errors)) {
+        $created_by = $_SESSION['user_id'];
+        $stmt = $conn->prepare("INSERT INTO events (title, event_date, description, created_by) VALUES (?, ?, ?, ?)");
+        $stmt->bind_param("sssi", $title, $event_date, $description, $created_by);
+        if ($stmt->execute()) {
+            header("Location: events.php?msg=created");
+            exit;
+        } else {
+             header("Location: events.php?error=db_error");
+             exit;
+        }
+        $stmt->close();
+    } else {
+        $errorStr = implode(", ", $errors);
+        header("Location: events.php?error=" . urlencode($errorStr));
+        exit;
+    }
+}
 
 // Fetch upcoming events
 $sql = "SELECT title, event_date, description FROM events 
@@ -90,7 +127,6 @@ $result = $conn->query($sql);
                 <li><a href="events.php" class="active"><i class="fa-solid fa-calendar-days"></i> Events</a></li>
             <?php elseif ($role === 'teacher'): ?>
                 <li><a href="dashboard_teacher.php"><i class="fa-solid fa-table-columns"></i> Dashboard</a></li>
-                <li><a href="my_class.php"><i class="fa-solid fa-user-group"></i> My Class</a></li>
                 <li><a href="attendance_teacher.php"><i class="fa-solid fa-calendar-check"></i> Attendance</a></li>
                 <li><a href="manage_leaves.php"><i class="fa-solid fa-envelope-open-text"></i> Leave Requests</a></li>
                 <li><a href="manage_assignments.php"><i class="fa-solid fa-book"></i> Lesson Plans</a></li>
@@ -101,12 +137,14 @@ $result = $conn->query($sql);
                 <li><a href="dashboard_parent.php"><i class="fa-solid fa-table-columns"></i> Dashboard</a></li>
                 <li><a href="attendance_parent.php"><i class="fa-solid fa-calendar-check"></i> Child Attendance</a></li>
                 <li><a href="my_children.php"><i class="fa-solid fa-users"></i> My Children</a></li>
+            <li><a href="results_parent.php"><i class="fa-solid fa-chart-line"></i> Results</a></li>
+            <li><a href="messages.php"><i class="fa-solid fa-envelope"></i> Messages</a></li>
                 <li><a href="bulletins.php"><i class="fa-solid fa-bullhorn"></i> Bulletins</a></li>
                 <li><a href="events.php" class="active"><i class="fa-solid fa-calendar-days"></i> Events</a></li>
             <?php endif; ?>
         </ul>
         <div class="logout">
-            <a href="../index.html"><i class="fa-solid fa-right-from-bracket"></i> Log Out</a>
+            <a href="../includes/logout.php"><i class="fa-solid fa-right-from-bracket"></i> Log Out</a>
         </div>
     </div>
 
@@ -125,6 +163,48 @@ $result = $conn->query($sql);
                 </div>
             </div>
         </div>
+
+        <!-- Teacher: Add Event Form -->
+        <?php if ($role === 'teacher'): ?>
+            <div class="event-card" style="display:block; border-left: 4px solid var(--primary);">
+                <h3 style="margin-bottom: 15px;"><i class="fa-solid fa-calendar-plus"></i> Create New Event</h3>
+                
+                <?php if (isset($_GET['msg'])): ?>
+                    <p style='color:green; background:#e8f5e9; padding:10px; border-radius:4px;'>Event created successfully!</p>
+                <?php endif; ?>
+                <?php if (isset($_GET['error'])): ?>
+                    <p style='color:red; background:#fdf2f2; padding:10px; border-radius:4px;'><?php echo htmlspecialchars($_GET['error']); ?></p>
+                <?php endif; ?>
+
+                <form method="POST" id="eventForm">
+                    <div style="margin-bottom: 15px;">
+                        <label style="display:block; font-weight:600; margin-bottom:5px;">Event Title</label>
+                        <input type="text" name="title" required style="width:100%; padding:8px; border:1px solid #ddd; border-radius:4px;">
+                    </div>
+                    <div style="margin-bottom: 15px;">
+                        <label style="display:block; font-weight:600; margin-bottom:5px;">Date & Time</label>
+                        <input type="datetime-local" name="event_date" required min="<?php echo date('Y-m-d\TH:i'); ?>" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:4px;">
+                    </div>
+                    <div style="margin-bottom: 15px;">
+                        <label style="display:block; font-weight:600; margin-bottom:5px;">Description</label>
+                        <textarea name="description" rows="3" required style="width:100%; padding:8px; border:1px solid #ddd; border-radius:4px; font-family:inherit;"></textarea>
+                    </div>
+                    <button type="submit" name="add_event" style="background:var(--primary); color:white; border:none; padding:10px 20px; border-radius:4px; cursor:pointer; font-weight:600;">Create Event</button>
+                </form>
+            </div>
+            
+            <script src="../js/validator.js"></script>
+            <script>
+                document.addEventListener('DOMContentLoaded', function() {
+                    const rules = {
+                        'title': (val) => FormValidator.validateTitle(val, 'Event Title'),
+                        'description': (val) => FormValidator.validateDescription(val, 'Description'),
+                        'event_date': (val) => FormValidator.validateDate(val, 'Event Date', 'future_only')
+                    };
+                    FormValidator.init('#eventForm', rules, true);
+                });
+            </script>
+        <?php endif; ?>
 
         <div style="margin-top: 30px;">
             <?php if ($result->num_rows > 0): ?>
@@ -155,3 +235,6 @@ $result = $conn->query($sql);
 
 </body>
 </html>
+
+
+

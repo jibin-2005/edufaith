@@ -6,30 +6,13 @@ if (!isset($_SESSION['user_id']) || !in_array($_SESSION['role'], ['admin', 'teac
 }
 require '../includes/db.php';
 
-$class_id = $_GET['class_id'] ?? '';
+$viewer_role = $_SESSION['role'];
+$viewer_id = $_SESSION['user_id'];
+
+$class_id = isset($_GET['class_id']) ? (int)$_GET['class_id'] : 0;
 $date = $_GET['date'] ?? date('Y-m-d');
-$weekday = date('w', strtotime($date));
-
-// Sunday Validation Logic
-$is_sunday = ($weekday == 0);
-$error_msg = "";
-if (!$is_sunday) {
-    $error_msg = "Attendance can only be marked on Sundays. Please select a Sunday.";
-}
-
-// Get Teacher's assigned classes
-$teacher_id = $_SESSION['user_id'];
-$classes_stmt = $conn->prepare("SELECT id, class_name FROM classes WHERE teacher_id = ? ORDER BY class_name");
-$classes_stmt->bind_param("i", $teacher_id);
-$classes_stmt->execute();
-$classes = $classes_stmt->get_result();
-
-// Auto-select Class if only one exists
-if (!$class_id && $classes->num_rows == 1) {
-    $row = $classes->fetch_assoc();
-    $class_id = $row['id'];
-    // Reset internal pointer for the loop below
-    $classes->data_seek(0);
+if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $date)) {
+    $date = date('Y-m-d');
 }
 
 // Default Date Logic: If Today is not Sunday, default to previous Sunday
@@ -40,30 +23,56 @@ if (!isset($_GET['date'])) {
         $date = date('Y-m-d');
     }
 }
-$weekday = date('w', strtotime($date));
 
-// Sunday Validation Logic
+$weekday = date('w', strtotime($date));
 $is_sunday = ($weekday == 0);
-$error_msg = "";
-if (!$is_sunday) {
-    $error_msg = "Selected date is not a Sunday. Please select a Sunday to view/mark attendance.";
+$error_msg = $is_sunday ? '' : 'Selected date is not a Sunday. Please select a Sunday to view/mark attendance.';
+
+// Get classes
+if ($viewer_role === 'admin') {
+    $classes_stmt = $conn->prepare("SELECT id, class_name FROM classes ORDER BY class_name ASC");
+    $classes_stmt->execute();
+} else {
+    $classes_stmt = $conn->prepare("SELECT id, class_name FROM classes WHERE teacher_id = ? ORDER BY class_name ASC");
+    $classes_stmt->bind_param("i", $viewer_id);
+    $classes_stmt->execute();
+}
+$classes = $classes_stmt->get_result();
+
+// Auto-select Class if only one exists
+if (!$class_id && $classes->num_rows == 1) {
+    $row = $classes->fetch_assoc();
+    $class_id = (int)$row['id'];
+    $classes->data_seek(0);
 }
 
+// Verify class ownership for teachers
+if ($viewer_role === 'teacher' && $class_id) {
+    $check = $conn->prepare("SELECT 1 FROM classes WHERE id = ? AND teacher_id = ?");
+    $check->bind_param("ii", $class_id, $viewer_id);
+    $check->execute();
+    if ($check->get_result()->num_rows === 0) {
+        $class_id = 0;
+    }
+    $check->close();
+}
+
+$students_result = null;
+$attendance_map = [];
 if ($class_id && $is_sunday) {
     // Fetch students in this class
     $stmt = $conn->prepare("SELECT id, username FROM users WHERE role = 'student' AND class_id = ? AND status='active' ORDER BY username ASC");
     $stmt->bind_param("i", $class_id);
     $stmt->execute();
     $students_result = $stmt->get_result();
-    
-    // Check if attendance already marked
-    $check_stmt = $conn->prepare("SELECT user_id, status FROM attendance WHERE attendance_date = ?");
-    $check_stmt->bind_param("s", $date);
+
+    // Existing attendance for date+class
+    $check_stmt = $conn->prepare("SELECT student_id, status FROM attendance WHERE date = ? AND class_id = ?");
+    $check_stmt->bind_param("si", $date, $class_id);
     $check_stmt->execute();
     $existing = $check_stmt->get_result();
-    $attendance_map = [];
     while ($row = $existing->fetch_assoc()) {
-        $attendance_map[$row['user_id']] = $row['status'];
+        $attendance_map[$row['student_id']] = $row['status'];
     }
 }
 ?>
@@ -99,11 +108,12 @@ if ($class_id && $is_sunday) {
         <ul class="menu">
             <li><a href="dashboard_teacher.php"><i class="fa-solid fa-table-columns"></i> Dashboard</a></li>
             <li><a href="my_class.php"><i class="fa-solid fa-user-group"></i> My Class</a></li>
-            <li><a href="attendance_history.php" class="active"><i class="fa-solid fa-clipboard-check"></i> Attendance</a></li>
+            <li><a href="attendance_teacher.php"><i class="fa-solid fa-calendar-plus"></i> Mark Attendance</a></li>
+            <li><a href="attendance_history.php" class="active"><i class="fa-solid fa-clipboard-list"></i> Attendance History</a></li>
             <li><a href="manage_assignments.php"><i class="fa-solid fa-book"></i> Lesson Plans</a></li>
             <li><a href="manage_results.php"><i class="fa-solid fa-chart-line"></i> Results</a></li>
         </ul>
-        <div class="logout"><a href="../index.html"><i class="fa-solid fa-right-from-bracket"></i> Log Out</a></div>
+        <div class="logout"><a href="../includes/logout.php"><i class="fa-solid fa-right-from-bracket"></i> Log Out</a></div>
     </div>
 
     <div class="main-content">
@@ -140,8 +150,8 @@ if ($class_id && $is_sunday) {
 
         <?php if ($students_result && $students_result->num_rows > 0): ?>
             <div style="margin-bottom: 10px;">
-                <button type="button" onclick="markAll('present')" style="padding:5px 10px; background:#e8f4fc; border:1px solid #3498db; color:#3498db; border-radius:4px; cursor:pointer;">Mark All Present</button>
-                <button type="button" onclick="markAll('absent')" style="padding:5px 10px; background:#fce8e8; border:1px solid #e74c3c; color:#e74c3c; border-radius:4px; cursor:pointer;">Mark All Absent</button>
+                <button type="button" onclick="markAll('Present')" style="padding:5px 10px; background:#e8f4fc; border:1px solid #3498db; color:#3498db; border-radius:4px; cursor:pointer;">Mark All Present</button>
+                <button type="button" onclick="markAll('Absent')" style="padding:5px 10px; background:#fce8e8; border:1px solid #e74c3c; color:#e74c3c; border-radius:4px; cursor:pointer;">Mark All Absent</button>
             </div>
 
             <form action="../includes/save_attendance.php" method="POST">
@@ -158,17 +168,17 @@ if ($class_id && $is_sunday) {
                     <tbody>
                         <?php while($student = $students_result->fetch_assoc()): ?>
                             <?php 
-                                $status = $attendance_map[$student['id']] ?? 'present'; // Default to present (lowercase)
+                                $status = $attendance_map[$student['id']] ?? 'Present';
                             ?>
                             <tr>
                                 <td><?= htmlspecialchars($student['username']) ?></td>
                                 <td>
                                     <div class="radio-group">
                                         <label>
-                                            <input type="radio" name="status[<?= $student['id'] ?>]" value="present" <?= $status == 'present' ? 'checked' : '' ?>> Present
+                                            <input type="radio" name="attendance[<?= $student['id'] ?>]" value="Present" <?= $status == 'Present' ? 'checked' : '' ?>> Present
                                         </label>
                                         <label style="color: red;">
-                                            <input type="radio" name="status[<?= $student['id'] ?>]" value="absent" <?= $status == 'absent' ? 'checked' : '' ?>> Absent
+                                            <input type="radio" name="attendance[<?= $student['id'] ?>]" value="Absent" <?= $status == 'Absent' ? 'checked' : '' ?>> Absent
                                         </label>
                                     </div>
                                 </td>

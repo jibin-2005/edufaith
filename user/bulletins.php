@@ -5,17 +5,47 @@ if (!isset($_SESSION['user_id'])) {
     exit;
 }
 require '../includes/db.php';
+require '../includes/validation_helper.php';
 
 $role = $_SESSION['role'];
 
-// Fetch bulletins targeted at this role or 'all'
+// Handle New Bulletin (Teacher Only)
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_announcement']) && $role === 'teacher') {
+    $title = $_POST['title'];
+    $content = $_POST['content'];
+    $target_role = 'all';
+
+    // Validation
+    $errors = [];
+    $valTitle = Validator::validateTitle($title, 'Title');
+    if ($valTitle !== true) $errors[] = $valTitle;
+    
+    $valContent = Validator::validateDescription($content, 'Content');
+    if ($valContent !== true) $errors[] = $valContent;
+
+    if (empty($errors)) {
+        $created_by = $_SESSION['user_id'];
+        $stmt = $conn->prepare("INSERT INTO announcements (title, content, target_role, created_by) VALUES (?, ?, ?, ?)");
+        $stmt->bind_param("sssi", $title, $content, $target_role, $created_by);
+        if ($stmt->execute()) {
+            header("Location: bulletins.php?msg=posted");
+            exit;
+        } else {
+             header("Location: bulletins.php?error=db_error");
+             exit;
+        }
+        $stmt->close();
+    } else {
+        $errorStr = implode(", ", $errors);
+        header("Location: bulletins.php?error=" . urlencode($errorStr));
+        exit;
+    }
+}
+
+// Fetch all bulletins
 $sql = "SELECT title, content, created_at FROM announcements 
-        WHERE target_role = 'all' OR target_role = ? 
         ORDER BY created_at DESC";
-$stmt = $conn->prepare($sql);
-$stmt->bind_param("s", $role);
-$stmt->execute();
-$bulletins = $stmt->get_result();
+$bulletins = $conn->query($sql);
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -64,7 +94,7 @@ $bulletins = $stmt->get_result();
         <ul class="menu">
             <?php if ($role === 'student'): ?>
                 <li><a href="dashboard_student.php"><i class="fa-solid fa-table-columns"></i> Dashboard</a></li>
-                <li><a href="attendance_student.php"><i class="fa-solid fa-calendar-check"></i> Attendance</a></li>
+                <li><a href="attendance_student.php"><i class="fa-solid fa-clipboard-list"></i> Attendance History</a></li>
                 <li><a href="leave_student.php"><i class="fa-solid fa-envelope-open-text"></i> Leave Requests</a></li>
                 <li><a href="my_lessons.php"><i class="fa-solid fa-book-bible"></i> My Lessons</a></li>
                 <li><a href="view_results.php"><i class="fa-solid fa-chart-line"></i> Results</a></li>
@@ -83,12 +113,14 @@ $bulletins = $stmt->get_result();
                 <li><a href="dashboard_parent.php"><i class="fa-solid fa-table-columns"></i> Dashboard</a></li>
                 <li><a href="attendance_parent.php"><i class="fa-solid fa-calendar-check"></i> Child Attendance</a></li>
                 <li><a href="my_children.php"><i class="fa-solid fa-users"></i> My Children</a></li>
+            <li><a href="results_parent.php"><i class="fa-solid fa-chart-line"></i> Results</a></li>
+            <li><a href="messages.php"><i class="fa-solid fa-envelope"></i> Messages</a></li>
                 <li><a href="bulletins.php" class="active"><i class="fa-solid fa-bullhorn"></i> Bulletins</a></li>
                 <li><a href="events.php"><i class="fa-solid fa-calendar-days"></i> Events</a></li>
             <?php endif; ?>
         </ul>
         <div class="logout">
-            <a href="../index.html"><i class="fa-solid fa-right-from-bracket"></i> Log Out</a>
+            <a href="../includes/logout.php"><i class="fa-solid fa-right-from-bracket"></i> Log Out</a>
         </div>
     </div>
 
@@ -107,6 +139,44 @@ $bulletins = $stmt->get_result();
                 </div>
             </div>
         </div>
+
+        <!-- Teacher: Add Bulletin Form -->
+        <?php if ($role === 'teacher'): ?>
+            <div class="bulletin-card" style="border-left: 4px solid #2ecc71; margin-top: 20px;">
+                <h3 style="margin-bottom: 15px;"><i class="fa-solid fa-plus-circle"></i> Post New Announcement</h3>
+                
+                <?php if (isset($_GET['msg'])): ?>
+                    <p style='color:green; background:#e8f5e9; padding:10px; border-radius:4px;'>Announcement posted successfully!</p>
+                <?php endif; ?>
+                <?php if (isset($_GET['error'])): ?>
+                    <p style='color:red; background:#fdf2f2; padding:10px; border-radius:4px;'><?php echo htmlspecialchars($_GET['error']); ?></p>
+                <?php endif; ?>
+
+                <form method="POST" id="bulletinForm">
+                    <div style="margin-bottom: 15px;">
+                        <label style="display:block; font-weight:600; margin-bottom:5px;">Title</label>
+                        <input type="text" name="title" required style="width:100%; padding:8px; border:1px solid #ddd; border-radius:4px;">
+                    </div>
+
+                    <div style="margin-bottom: 15px;">
+                        <label style="display:block; font-weight:600; margin-bottom:5px;">Content</label>
+                        <textarea name="content" rows="3" required style="width:100%; padding:8px; border:1px solid #ddd; border-radius:4px; font-family:inherit;"></textarea>
+                    </div>
+                    <button type="submit" name="add_announcement" style="background:var(--primary); color:white; border:none; padding:10px 20px; border-radius:4px; cursor:pointer; font-weight:600;">Post Bulletin</button>
+                </form>
+            </div>
+            
+            <script src="../js/validator.js"></script>
+            <script>
+                document.addEventListener('DOMContentLoaded', function() {
+                    const rules = {
+                        'title': (val) => FormValidator.validateTitle(val, 'Title'),
+                        'content': (val) => FormValidator.validateDescription(val, 'Content')
+                    };
+                    FormValidator.init('#bulletinForm', rules, true);
+                });
+            </script>
+        <?php endif; ?>
 
         <div style="margin-top: 30px;">
             <?php if ($bulletins->num_rows > 0): ?>
@@ -129,3 +199,6 @@ $bulletins = $stmt->get_result();
 
 </body>
 </html>
+
+
+

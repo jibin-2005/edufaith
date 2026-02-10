@@ -29,7 +29,7 @@ $result = $conn->query("SELECT * FROM events WHERE event_date >= CURDATE() ORDER
             <li><a href="achievements.php"><i class="fa-solid fa-star"></i> Achievements</a></li>
             <li><a href="#" class="active"><i class="fa-solid fa-calendar-check"></i> Calendar</a></li>
         </ul>
-        <div class="logout"><a href="../index.html"><i class="fa-solid fa-right-from-bracket"></i> Log Out</a></div>
+        <div class="logout"><a href="../includes/logout.php"><i class="fa-solid fa-right-from-bracket"></i> Log Out</a></div>
     </div>
 
     <div class="main-content">

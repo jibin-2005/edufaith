@@ -12,15 +12,32 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $attendance_data = $_POST['attendance'] ?? [];
     $teacher_id = $_SESSION['user_id'];
 
-    // 1. Sunday Validation (per requirements)
-    $weekday = date('w', strtotime($date));
-    if ($weekday != 0) {
-        // die("Error: Attendance can only be marked on Sundays.");
-        // We might want to allow editing past Sundays, so we only block if it's TODAY and not Sunday?
-        // Actually the prompt says "Attendance marking is allowed only on Sundays, Editing past Sundays is allowed"
-        if ($date == date('Y-m-d')) {
-             die("Error: Today is not Sunday. Attendance can only be marked on Sundays.");
+    // 1. Validation Logic
+    require 'validation_helper.php';
+    $valDate = Validator::validateDate($date, 'Attendance Date', 'future_only');
+    if ($valDate !== true) {
+        die("Error: " . $valDate);
+    }
+    
+    // Rule: Teachers cannot edit previous dates (User Requirement 4)
+    // "Attendance marking allowed only for current date" (User Requirement 3)
+    // Rule: Teachers cannot edit previous dates (User Requirement 4)
+    // "Attendance marking allowed only for current date" (User Requirement 3)
+    if ($_SESSION['role'] === 'teacher') {
+        $today = date('Y-m-d');
+        if ($date !== $today) {
+             die("Error: Teachers can only mark attendance for the current date.");
         }
+
+        // Rule: Only assigned teacher should be able to mark attendance of their class (New Requirement)
+        // Verify class ownership
+        $stmt_verify = $conn->prepare("SELECT id FROM classes WHERE id = ? AND teacher_id = ?");
+        $stmt_verify->bind_param("ii", $class_id, $teacher_id);
+        $stmt_verify->execute();
+        if ($stmt_verify->get_result()->num_rows === 0) {
+            die("Error: You are not assigned to this class.");
+        }
+        $stmt_verify->close();
     }
 
     // 2. Clear existing records for this class and date to allow easy updates/re-submissions
@@ -30,7 +47,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                            VALUES (?, ?, ?, ?, ?) 
                            ON DUPLICATE KEY UPDATE status = VALUES(status), teacher_id = VALUES(teacher_id)");
     
+    $allowed_statuses = ['Present', 'Absent']; // Allowed values
+
     foreach ($attendance_data as $student_id => $status) {
+        // Rule: Remove Late (User Requirement 4) and strict check
+        if (!in_array($status, $allowed_statuses)) {
+            continue; // Skip invalid status
+        }
+
         $stmt->bind_param("iiiss", $student_id, $class_id, $teacher_id, $date, $status);
         $stmt->execute();
     }

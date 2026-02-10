@@ -72,7 +72,7 @@ $all_students = $conn->query("SELECT id, username FROM users WHERE role = 'stude
             <li><a href="dashboard_admin.php"><i class="fa-solid fa-table-columns"></i> Dashboard</a></li>
             <li><a href="manage_parents.php" class="active"><i class="fa-solid fa-users"></i> Parents</a></li>
         </ul>
-        <div class="logout"><a href="../index.html"><i class="fa-solid fa-right-from-bracket"></i> Log Out</a></div>
+        <div class="logout"><a href="../includes/logout.php"><i class="fa-solid fa-right-from-bracket"></i> Log Out</a></div>
     </div>
 
     <div class="main-content">
@@ -196,6 +196,5 @@ $all_students = $conn->query("SELECT id, username FROM users WHERE role = 'stude
             }
         });
     </script>
-    <script src="../js/form_validation.js"></script>
 </body>
 </html>

@@ -22,19 +22,45 @@ class Validator {
         if (empty($text)) return "$fieldName cannot be empty.";
         if (strlen($text) < $min) return "$fieldName must be at least $min characters.";
         if (strlen($text) > $max) return "$fieldName cannot exceed $max characters.";
+        
+        // At least one alphabet
         if (!preg_match('/[a-zA-Z]/', $text)) return "$fieldName must contain at least one letter.";
+        
+        // Should not be only numbers
+        if (ctype_digit($text)) return "$fieldName cannot consist of only numbers.";
+        
+        return true;
+    }
+    
+    /**
+     * Validate Title / Heading.
+     * Rule: Not empty, No only special chars, No only numbers.
+     */
+    public static function validateTitle($text, $fieldName) {
+        $text = trim($text);
+        if (empty($text)) return "$fieldName cannot be empty.";
+        
+        // At least one alphabet
+        if (!preg_match('/[a-zA-Z]/', $text)) return "$fieldName must contain at least one alphabet.";
+        
+        // Should not be only numbers
+        if (ctype_digit($text)) return "$fieldName cannot consist of only numbers.";
+        
+        // Should not be only special chars (roughly checks if there's no alphanum)
+        if (!preg_match('/[a-zA-Z0-9]/', $text)) return "$fieldName cannot consist of only special characters.";
+        
         return true;
     }
 
     /**
      * Validate Description / Content Fields.
-     * Rule: Not empty, min 10 chars, contains meaningful text.
+     * Rule: Not empty, min 10 chars, contains meaningful text (at least one alpha).
      */
     public static function validateDescription($desc, $fieldName, $min = 10) {
         $desc = trim($desc);
         if (empty($desc)) return "$fieldName cannot be empty.";
         if (strlen($desc) < $min) return "$fieldName must be at least $min characters.";
-        if (!preg_match('/[a-zA-Z]/', $desc)) return "$fieldName must contain meaningful text.";
+        if (!preg_match('/[a-zA-Z]/', $desc)) return "$fieldName must contain at least one alphabet.";
         return true;
     }
 
@@ -51,10 +77,20 @@ class Validator {
     }
 
     /**
-     * Validate Email.
+     * Validate Email (Strict).
      */
     public static function validateEmail($email) {
         if (empty($email)) return "Email cannot be empty.";
+        $email = trim($email);
+        
+        // Strict regex match before filter_var
+        if (!preg_match('/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/', $email)) {
+            return "Invalid email format.";
+        }
+        
+        // No spaces allowed
+        if (strpos($email, ' ') !== false) return "Email cannot contain spaces.";
+        
         if (!filter_var($email, FILTER_VALIDATE_EMAIL)) return "Invalid email format.";
         return true;
     }
@@ -81,15 +117,29 @@ class Validator {
 
     /**
      * Validate Date.
+     * $type: 'future_only' (>= today), 'past_only' (<= today), 'any'
      */
-    public static function validateDate($date, $fieldName) {
+    public static function validateDate($date, $fieldName, $type = 'any') {
         if (empty($date)) return "$fieldName cannot be empty.";
+        
+        // Helper to parse date
         $d = DateTime::createFromFormat('Y-m-d', $date);
         if (!$d || $d->format('Y-m-d') !== $date) {
-            // Check for datetime-local format
+            // Check for datetime-local format if strictly Y-m-d fails
             $d = DateTime::createFromFormat('Y-m-d\TH:i', $date);
             if (!$d) return "Invalid $fieldName format.";
         }
+
+        $today = new DateTime();
+        $today->setTime(0,0,0); // Midnight
+        $d->setTime(0,0,0);
+
+        if ($type === 'future_only') {
+            if ($d < $today) return "$fieldName cannot be in the past.";
+        } elseif ($type === 'past_only') {
+            if ($d > $today) return "$fieldName cannot be in the future.";
+        }
+
         return true;
     }
 

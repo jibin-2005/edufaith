@@ -22,37 +22,20 @@ if ($check->num_rows === 0 || $check->fetch_assoc()['role'] !== 'student') {
 
 // Handle Update
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
-    require '../includes/validation.php';
-    $validator = new Validator();
+    $username = $_POST['fullname'];
+    $email = $_POST['email'];
+    $class_id = !empty($_POST['class_id']) ? $_POST['class_id'] : NULL;
     
-    // Get and sanitize input
-    $username = $validator->sanitize($_POST['fullname'] ?? '');
-    $email = $validator->sanitize($_POST['email'] ?? '');
-    $class_id = !empty($_POST['class_id']) ? intval($_POST['class_id']) : NULL;
-    
-    // Validate fields
-    $validator->validateFullName($username, 'Full Name');
-    $validator->validateEmail($email, 'Email');
-    
-    // Check if email already exists (excluding current user)
-    if ($validator->isValid()) {
-        $validator->checkEmailExists($email, $conn, $user_id, 'Email');
-    }
-    
-    if ($validator->isValid()) {
-        // Teachers can update name, email, and class
-        $stmt = $conn->prepare("UPDATE users SET username = ?, email = ?, class_id = ? WHERE id = ?");
-        $stmt->bind_param("ssii", $username, $email, $class_id, $user_id);
+    // Teachers can update name, email, and class
+    $stmt = $conn->prepare("UPDATE users SET username = ?, email = ?, class_id = ? WHERE id = ?");
+    $stmt->bind_param("ssii", $username, $email, $class_id, $user_id);
 
-        if ($stmt->execute()) {
-            $message = "Student details updated successfully.";
-        } else {
-            $message = "Error: " . $stmt->error;
-        }
-        $stmt->close();
+    if ($stmt->execute()) {
+        $message = "Student details updated successfully.";
     } else {
-        $message = "Error: " . $validator->getFirstError();
+        $message = "Error: " . $stmt->error;
     }
+    $stmt->close();
 }
 
 // Fetch current data
@@ -90,7 +73,7 @@ $stmt->close();
             <li><a href="attendance_history.php"><i class="fa-solid fa-clipboard-check"></i> Attendance</a></li>
             <li><a href="manage_assignments.php"><i class="fa-solid fa-book"></i> Lesson Plans</a></li>
         </ul>
-        <div class="logout"><a href="../index.html"><i class="fa-solid fa-right-from-bracket"></i> Log Out</a></div>
+        <div class="logout"><a href="../includes/logout.php"><i class="fa-solid fa-right-from-bracket"></i> Log Out</a></div>
     </div>
 
     <div class="main-content">
@@ -142,6 +125,5 @@ $stmt->close();
             </form>
         </div>
     </div>
-    <script src="../js/form_validation.js"></script>
 </body>
 </html>

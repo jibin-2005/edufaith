@@ -50,14 +50,14 @@ if ($selected_student_id) {
         while($row = $result->fetch_assoc()) {
             $rows[] = $row;
             $total++;
-            if ($row['status'] === 'Present' || $row['status'] === 'Late' || $row['status'] === 'Leave Approved') $present++;
+            if ($row['status'] === 'Present' || $row['status'] === 'Leave Approved') $present++;
 
             $monthKey = date('Y-m', strtotime($row['date']));
             if (!isset($months[$monthKey])) {
                 $months[$monthKey] = ['total' => 0, 'present' => 0];
             }
             $months[$monthKey]['total']++;
-            if ($row['status'] === 'Present' || $row['status'] === 'Late' || $row['status'] === 'Leave Approved') {
+            if ($row['status'] === 'Present' || $row['status'] === 'Leave Approved') {
                 $months[$monthKey]['present']++;
             }
         }
@@ -91,15 +91,14 @@ $overall_percent = $total > 0 ? round(($present / $total) * 100, 1) : 0;
         .child-selector { background: white; padding: 15px; border-radius: 8px; margin-bottom: 25px; display: flex; align-items: center; gap: 15px; border-left: 4px solid var(--primary); }
         .month-stat { background: white; padding: 20px; border-radius: 12px; margin-bottom: 15px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
         .status-badge { padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 700; }
-        .Present { background: #eafaf1; color: #2ecc71; }
-        .Absent { background: #fdf2f2; color: #e74c3c; }
-        .Late { background: #fef9e7; color: #f1c40f; }
+        .status-present { background: #eafaf1; color: #2ecc71; }
+        .status-absent { background: #fdf2f2; color: #e74c3c; }
         .status-badge.approved { background: #eafaf1; color: #2ecc71; }
         .status-badge.pending { background: #fff4e5; color: #ffa117; }
         .status-badge.rejected { background: #fdf2f2; color: #e74c3c; }
         /* Map specific attendance statuses to classes */
-        .Leave\.Approved { background: #eafaf1; color: #2ecc71; }
-        .Pending\.Leave { background: #fff4e5; color: #ffa117; }
+        .status-leave-approved { background: #eafaf1; color: #2ecc71; }
+        .status-pending-leave { background: #fff4e5; color: #ffa117; }
     </style>
 </head>
 <body>
@@ -109,10 +108,12 @@ $overall_percent = $total > 0 ? round(($present / $total) * 100, 1) : 0;
             <li><a href="dashboard_parent.php"><i class="fa-solid fa-table-columns"></i> Dashboard</a></li>
             <li><a href="attendance_parent.php" class="active"><i class="fa-solid fa-calendar-check"></i> Child Attendance</a></li>
             <li><a href="my_children.php"><i class="fa-solid fa-users"></i> My Children</a></li>
+            <li><a href="results_parent.php"><i class="fa-solid fa-chart-line"></i> Results</a></li>
+            <li><a href="messages.php"><i class="fa-solid fa-envelope"></i> Messages</a></li>
             <li><a href="bulletins.php"><i class="fa-solid fa-bullhorn"></i> Bulletins</a></li>
             <li><a href="events.php"><i class="fa-solid fa-calendar-days"></i> Events</a></li>
         </ul>
-        <div class="logout"><a href="../index.html"><i class="fa-solid fa-right-from-bracket"></i> Log Out</a></div>
+        <div class="logout"><a href="../includes/logout.php"><i class="fa-solid fa-right-from-bracket"></i> Log Out</a></div>
     </div>
 
     <div class="main-content">
@@ -189,7 +190,7 @@ $overall_percent = $total > 0 ? round(($present / $total) * 100, 1) : 0;
                                 <?php foreach ($rows as $row): ?>
                                     <tr>
                                         <td><?php echo date('d M Y', strtotime($row['date'])); ?></td>
-                                        <td><span class="status-badge <?php echo str_replace(' ', '.', $row['status']); ?>"><?php echo $row['status']; ?></span></td>
+                                        <td><span class="status-badge status-<?php echo strtolower(str_replace(' ', '-', $row['status'])); ?>"><?php echo $row['status']; ?></span></td>
                                     </tr>
                                 <?php endforeach; ?>
                             <?php else: ?>
@@ -230,3 +231,6 @@ $overall_percent = $total > 0 ? round(($present / $total) * 100, 1) : 0;
     </div>
 </body>
 </html>
+
+
+

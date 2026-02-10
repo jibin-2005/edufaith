@@ -30,13 +30,13 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         $update_stmt->execute();
 
         // 4. Send Email (Link contains the CLEAN token, not the hash)
-        // konstrukt the link
+        // Construct the link (reset_password.php is in project root)
         $protocol = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? "https" : "http";
-        // Assuming the file is in the same directory
-        $path = dirname($_SERVER['PHP_SELF']); 
-        if ($path == '/' || $path == '\\') $path = '';
-        
-        $reset_link = "$protocol://$_SERVER[HTTP_HOST]$path/reset_password.php?token=$token";
+        $base_path = rtrim(str_replace('\\', '/', dirname($_SERVER['PHP_SELF'])), '/');
+        if (substr($base_path, -9) === '/includes') {
+            $base_path = substr($base_path, 0, -9);
+        }
+        $reset_link = "$protocol://{$_SERVER['HTTP_HOST']}$base_path/reset_password.php?token=$token";
 
         // --- SMTP EMAIL SENDING ---
         require 'SimpleSMTP.php';

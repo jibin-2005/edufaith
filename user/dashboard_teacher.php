@@ -7,41 +7,99 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'teacher') {
 
 require '../includes/db.php';
 
+$teacher_id = $_SESSION['user_id'];
+
+// Profile picture
+$profile_picture = null;
+$stmt_pic = $conn->prepare("SELECT profile_picture FROM users WHERE id = ?");
+$stmt_pic->bind_param("i", $teacher_id);
+$stmt_pic->execute();
+$profile_picture = $stmt_pic->get_result()->fetch_assoc()['profile_picture'] ?? null;
+$stmt_pic->close();
+
 // 1. Fetch Summary Data
-// Total Students
-$sql_students = "SELECT COUNT(*) as count FROM users WHERE role = 'student'";
-$result_students = $conn->query($sql_students);
-$total_students = $result_students->fetch_assoc()['count'];
+// Total Students in teacher's classes
+$stmt_students = $conn->prepare("SELECT COUNT(*) as count
+                                 FROM users u
+                                 JOIN classes c ON u.class_id = c.id
+                                 WHERE u.role = 'student' AND u.status = 'active' AND c.teacher_id = ?");
+$stmt_students->bind_param("i", $teacher_id);
+$stmt_students->execute();
+$total_students = $stmt_students->get_result()->fetch_assoc()['count'] ?? 0;
+$stmt_students->close();
 
 // Present/Absent Today
 $date = date("Y-m-d");
 $present_count = 0;
 $absent_count = 0;
 
-$sql_att_stats = "SELECT status, COUNT(*) as count FROM attendance WHERE date = '$date' GROUP BY status";
-$result_att_stats = $conn->query($sql_att_stats);
+$stmt_att_stats = $conn->prepare("SELECT `status`, COUNT(*) as count
+                                  FROM attendance a
+                                  JOIN classes c ON a.class_id = c.id
+                                  WHERE c.teacher_id = ? AND a.`date` = ?
+                                  GROUP BY `status`");
+if ($stmt_att_stats) {
+    $stmt_att_stats->bind_param("is", $teacher_id, $date);
+    $stmt_att_stats->execute();
+    $result_att_stats = $stmt_att_stats->get_result();
+} else {
+    $result_att_stats = false;
+}
 if ($result_att_stats) {
     while ($row = $result_att_stats->fetch_assoc()) {
         if ($row['status'] == 'Present') $present_count = $row['count'];
         if ($row['status'] == 'Absent') $absent_count = $row['count'];
     }
 }
+$stmt_att_stats && $stmt_att_stats->close();
+
+// Class Average Attendance (last 30 days)
+$stmt_avg = $conn->prepare("SELECT ROUND(SUM(CASE WHEN a.`status` = 'Present' THEN 1 ELSE 0 END) * 100.0 / COUNT(*), 1) AS rate
+                            FROM attendance a
+                            JOIN classes c ON a.class_id = c.id
+                            WHERE c.teacher_id = ? AND a.`date` >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)");
+if ($stmt_avg) {
+    $stmt_avg->bind_param("i", $teacher_id);
+    $stmt_avg->execute();
+    $avg_attendance = $stmt_avg->get_result()->fetch_assoc()['rate'] ?? 0;
+} else {
+    $avg_attendance = 0;
+}
+$stmt_avg && $stmt_avg->close();
+
+// Pending leave requests for teacher's classes
+$stmt_pending = $conn->prepare("SELECT COUNT(*) as count
+                                FROM leave_requests lr
+                                JOIN classes c ON lr.class_id = c.id
+                                WHERE c.teacher_id = ? AND lr.status = 'pending'");
+$stmt_pending->bind_param("i", $teacher_id);
+$stmt_pending->execute();
+$pending_leaves = $stmt_pending->get_result()->fetch_assoc()['count'] ?? 0;
+$stmt_pending->close();
 
 // 2. Fetch Weekly Attendance for Chart (last 5 Sundays)
 $weekly_stats = [];
-$sql_weekly = "SELECT date, 
-               ROUND(SUM(CASE WHEN status = 'Present' THEN 1 ELSE 0 END) * 100.0 / COUNT(*), 1) as percentage 
-               FROM attendance 
-               WHERE class_id = (SELECT id FROM classes WHERE teacher_id = {$_SESSION['user_id']} LIMIT 1) 
-               GROUP BY date 
-               ORDER BY date DESC LIMIT 5";
-$res_weekly = $conn->query($sql_weekly);
+$stmt_weekly = $conn->prepare("SELECT a.`date`, 
+                               ROUND(SUM(CASE WHEN a.`status` = 'Present' THEN 1 ELSE 0 END) * 100.0 / COUNT(*), 1) as percentage 
+                               FROM attendance a
+                               JOIN classes c ON a.class_id = c.id
+                               WHERE c.teacher_id = ?
+                               GROUP BY a.`date` 
+                               ORDER BY a.`date` DESC LIMIT 5");
+if ($stmt_weekly) {
+    $stmt_weekly->bind_param("i", $teacher_id);
+    $stmt_weekly->execute();
+    $res_weekly = $stmt_weekly->get_result();
+} else {
+    $res_weekly = false;
+}
 if ($res_weekly) {
     while ($row = $res_weekly->fetch_assoc()) {
         $weekly_stats[] = $row;
     }
 }
 $weekly_stats = array_reverse($weekly_stats); // Chronological order
+$stmt_weekly && $stmt_weekly->close();
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -75,9 +133,11 @@ $weekly_stats = array_reverse($weekly_stats); // Chronological order
             <li><a href="manage_results.php"><i class="fa-solid fa-chart-line"></i> Results</a></li>
             <li><a href="bulletins.php"><i class="fa-solid fa-bullhorn"></i> Bulletins</a></li>
             <li><a href="events.php"><i class="fa-solid fa-calendar-days"></i> Events</a></li>
+            <li><a href="messages_teacher.php"><i class="fa-solid fa-envelope"></i> Messages</a></li>
+            <li><a href="profile.php"><i class="fa-solid fa-user-gear"></i> Profile</a></li>
         </ul>
         <div class="logout">
-            <a href="../index.html"><i class="fa-solid fa-right-from-bracket"></i> Log Out</a>
+            <a href="../includes/logout.php"><i class="fa-solid fa-right-from-bracket"></i> Log Out</a>
         </div>
     </div>
 
@@ -87,23 +147,26 @@ $weekly_stats = array_reverse($weekly_stats); // Chronological order
         <div class="top-bar">
             <div class="welcome-text">
                 <h2>Hello, <?php echo htmlspecialchars($_SESSION['username']); ?></h2>
-                <p>Teacher Dashboard • <?php echo date("l, F j, Y"); ?></p>
+                <p>Teacher Dashboard � <?php echo date("l, F j, Y"); ?></p>
             </div>
             <div class="user-profile">
                 <span><?php echo htmlspecialchars($_SESSION['username']); ?></span>
                 <div class="user-img">
-                    <img src="https://ui-avatars.com/api/?name=<?php echo urlencode($_SESSION['username']); ?>&background=random" alt="Teacher">
+                    <?php if (!empty($profile_picture) && file_exists('../' . $profile_picture)): ?>
+                        <img src="../<?php echo htmlspecialchars($profile_picture); ?>" alt="Teacher">
+                    <?php else: ?>
+                        <img src="https://ui-avatars.com/api/?name=<?php echo urlencode($_SESSION['username']); ?>&background=random" alt="Teacher">
+                    <?php endif; ?>
                 </div>
             </div>
         </div>
 
         <!-- STATS -->
         <div class="grid-container">
-            <!-- Existing Stats -->
             <div class="card">
                 <div class="card-info">
                     <h3><?php echo $total_students; ?></h3>
-                    <p>Total Students</p>
+                    <p>My Students</p>
                 </div>
                 <div class="card-icon bg-blue">
                     <i class="fa-solid fa-users"></i>
@@ -111,11 +174,29 @@ $weekly_stats = array_reverse($weekly_stats); // Chronological order
             </div>
             <div class="card" style="grid-column: span 2;">
                 <div class="card-info">
-                    <h3>78%</h3>
+                    <h3><?php echo $avg_attendance; ?>%</h3>
                     <p>Class Average Attendance</p>
                 </div>
                 <div class="card-icon bg-green">
                     <i class="fa-solid fa-chart-line"></i>
+                </div>
+            </div>
+            <div class="card">
+                <div class="card-info">
+                    <h3><?php echo $present_count; ?></h3>
+                    <p>Present Today</p>
+                </div>
+                <div class="card-icon bg-green">
+                    <i class="fa-solid fa-user-check"></i>
+                </div>
+            </div>
+            <div class="card">
+                <div class="card-info">
+                    <h3><?php echo $pending_leaves; ?></h3>
+                    <p>Pending Leaves</p>
+                </div>
+                <div class="card-icon bg-purple">
+                    <i class="fa-solid fa-envelope-open-text"></i>
                 </div>
             </div>
         </div>
@@ -150,22 +231,26 @@ $weekly_stats = array_reverse($weekly_stats); // Chronological order
                 </div>
                 <ul>
                     <?php
-                    // Fetch pending leaves for review (mock logic: seeing all leaves for now)
-                    $l_sql = "SELECT l.id, u.username, l.reason, l.start_date FROM leaves l JOIN users u ON l.user_id = u.id WHERE l.status='pending' LIMIT 3";
-                    $l_res = $conn->query($l_sql);
+                    $l_stmt = $conn->prepare("SELECT lr.id, u.username, lr.reason, lr.leave_date
+                                              FROM leave_requests lr
+                                              JOIN users u ON lr.student_id = u.id
+                                              JOIN classes c ON lr.class_id = c.id
+                                              WHERE c.teacher_id = ? AND lr.status = 'pending'
+                                              ORDER BY lr.leave_date ASC LIMIT 3");
+                    $l_stmt->bind_param("i", $teacher_id);
+                    $l_stmt->execute();
+                    $l_res = $l_stmt->get_result();
                     if ($l_res->num_rows > 0) {
                         while($row = $l_res->fetch_assoc()) {
                             echo "<li style='border-bottom:1px solid #eee; padding:10px 0; display:flex; justify-content:space-between; align-items:center;'>";
-                            echo "<div><strong>".htmlspecialchars($row['username'])."</strong><br><small>".$row['reason']."</small></div>";
-                            echo "<div>
-                                    <button style='background:green; color:white; border:none; border-radius:4px; padding:4px 8px; cursor:pointer;'>✓</button>
-                                    <button style='background:#e74c3c; color:white; border:none; border-radius:4px; padding:4px 8px; cursor:pointer;'>✕</button>
-                                  </div>";
+                            echo "<div><strong>".htmlspecialchars($row['username'])."</strong><br><small>".htmlspecialchars($row['reason'])."</small></div>";
+                            echo "<div><a href='manage_leaves.php' style='color:var(--primary); text-decoration:none; font-weight:600;'>View</a></div>";
                             echo "</li>";
                         }
                     } else {
                          echo "<p style='color:#999; text-align:center;'>No pending requests.</p>";
                     }
+                    $l_stmt->close();
                     ?>
                 </ul>
             </div>
@@ -217,6 +302,11 @@ $weekly_stats = array_reverse($weekly_stats); // Chronological order
                 }
             }
         });
+
+        // Auto-refresh dashboard every 60 seconds for live stats
+        setInterval(() => {
+            window.location.reload();
+        }, 60000);
     </script>
 
 </body>

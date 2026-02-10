@@ -5,38 +5,85 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'teacher') {
     exit;
 }
 require '../includes/db.php';
+require '../includes/validation_helper.php';
 
 // Add Assignment
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_assignment'])) {
-    $title = $conn->real_escape_string($_POST['title']);
-    $description = $conn->real_escape_string($_POST['description']);
-    $due_date = $conn->real_escape_string($_POST['due_date']);
+    $title = $_POST['title'];
+    $description = $_POST['description'];
+    $due_date = $_POST['due_date'];
     $class_id = intval($_POST['class_id']);
-    $assigned_by = $_SESSION['user_id'];
+    
+    // Validation
+    $errors = [];
+    $valTitle = Validator::validateTitle($title, 'Title');
+    if ($valTitle !== true) $errors[] = $valTitle;
 
-    $sql = "INSERT INTO assignments (title, description, due_date, class_id, assigned_by, created_by) VALUES ('$title', '$description', '$due_date', '$class_id', $assigned_by, $assigned_by)";
-    if ($conn->query($sql)) {
-         header("Location: manage_assignments.php?msg=success");
-         exit;
+    $valDesc = Validator::validateDescription($description, 'Details', 5); // Allow shorter desc for assignments? Default is 10
+    if ($valDesc !== true) $errors[] = $valDesc;
+
+    $valDate = Validator::validateDate($due_date, 'Due Date', 'future_only');
+    if ($valDate !== true) $errors[] = $valDate;
+    
+    if ($class_id <= 0) $errors[] = "Please select a valid class.";
+
+    // Verify class belongs to this teacher
+    if (empty($errors)) {
+        $teacher_id = $_SESSION['user_id'];
+        $check = $conn->prepare("SELECT 1 FROM classes WHERE id = ? AND teacher_id = ?");
+        $check->bind_param("ii", $class_id, $teacher_id);
+        $check->execute();
+        if ($check->get_result()->num_rows === 0) {
+            $errors[] = "You can only post assignments to your own class.";
+        }
+        $check->close();
+    }
+
+    if (empty($errors)) {
+        $assigned_by = $_SESSION['user_id'];
+        $created_by = $_SESSION['user_id'];
+
+        $stmt = $conn->prepare("INSERT INTO assignments (title, description, due_date, class_id, assigned_by, created_by) VALUES (?, ?, ?, ?, ?, ?)");
+        $stmt->bind_param("sssiii", $title, $description, $due_date, $class_id, $assigned_by, $created_by);
+        if ($stmt->execute()) {
+             header("Location: manage_assignments.php?msg=success");
+             exit;
+        } else {
+             $error_msg = "Database Error: " . $conn->error;
+        }
+        $stmt->close();
     } else {
-         $error_msg = $conn->error;
+        $error_msg = implode("<br>", $errors);
     }
 }
 
 // Delete
 if (isset($_GET['delete'])) {
     $id = intval($_GET['delete']);
-    $conn->query("DELETE FROM assignments WHERE id = $id");
+    // Only delete assignments created by this teacher
+    $stmt = $conn->prepare("DELETE FROM assignments WHERE id = ? AND assigned_by = ?");
+    $stmt->bind_param("ii", $id, $_SESSION['user_id']);
+    $stmt->execute();
+    $stmt->close();
     header("Location: manage_assignments.php");
     exit;
 }
 
-// Fetch Assignments with Class Name
-$sql = "SELECT a.*, c.class_name FROM assignments a LEFT JOIN classes c ON a.class_id = c.id ORDER BY a.due_date DESC";
-$result = $conn->query($sql);
+// Fetch Assignments created by this teacher
+$stmt_list = $conn->prepare("SELECT a.*, c.class_name 
+                             FROM assignments a 
+                             LEFT JOIN classes c ON a.class_id = c.id 
+                             WHERE a.assigned_by = ? 
+                             ORDER BY a.due_date DESC");
+$stmt_list->bind_param("i", $_SESSION['user_id']);
+$stmt_list->execute();
+$result = $stmt_list->get_result();
 
-// Fetch Classes for Dropdown
-$classes = $conn->query("SELECT id, class_name FROM classes ORDER BY class_name ASC");
+// Fetch Classes for Dropdown (only teacher's classes)
+$stmt_classes = $conn->prepare("SELECT id, class_name FROM classes WHERE teacher_id = ? ORDER BY class_name ASC");
+$stmt_classes->bind_param("i", $_SESSION['user_id']);
+$stmt_classes->execute();
+$classes = $stmt_classes->get_result();
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -70,7 +117,7 @@ $classes = $conn->query("SELECT id, class_name FROM classes ORDER BY class_name 
             <li><a href="bulletins.php"><i class="fa-solid fa-bullhorn"></i> Bulletins</a></li>
             <li><a href="events.php"><i class="fa-solid fa-calendar-days"></i> Events</a></li>
         </ul>
-        <div class="logout"><a href="../index.html"><i class="fa-solid fa-right-from-bracket"></i> Log Out</a></div>
+        <div class="logout"><a href="../includes/logout.php"><i class="fa-solid fa-right-from-bracket"></i> Log Out</a></div>
     </div>
 
     <div class="main-content">
@@ -92,7 +139,7 @@ $classes = $conn->query("SELECT id, class_name FROM classes ORDER BY class_name 
 
         <div class="form-container">
             <h3>Add New Assignment</h3>
-            <form method="POST">
+            <form method="POST" id="assignmentForm">
                 <div class="form-group">
                     <label>Title</label>
                     <input type="text" name="title" required placeholder="e.g., Read Genesis 1">
@@ -108,7 +155,7 @@ $classes = $conn->query("SELECT id, class_name FROM classes ORDER BY class_name 
                 </div>
                 <div class="form-group">
                     <label>Due Date</label>
-                    <input type="date" name="due_date" required>
+                    <input type="date" name="due_date" required min="<?php echo date('Y-m-d'); ?>">
                 </div>
                 <div class="form-group">
                     <label>Details</label>
@@ -117,6 +164,18 @@ $classes = $conn->query("SELECT id, class_name FROM classes ORDER BY class_name 
                 <button type="submit" name="add_assignment" class="btn-primary">Post Assignment</button>
             </form>
         </div>
+        
+        <script src="../js/validator.js"></script>
+        <script>
+            document.addEventListener('DOMContentLoaded', function() {
+                const rules = {
+                    'title': (val) => FormValidator.validateTitle(val, 'Title'),
+                    'description': (val) => FormValidator.validateDescription(val, 'Details', 5),
+                    'due_date': (val) => FormValidator.validateDate(val, 'Due Date', 'future_only')
+                };
+                FormValidator.init('#assignmentForm', rules, true);
+            });
+        </script>
 
         <div class="table-container">
             <h3>Posted Assignments</h3>
@@ -144,7 +203,6 @@ $classes = $conn->query("SELECT id, class_name FROM classes ORDER BY class_name 
                         </td>
                         <td><?php echo date("M j, Y", strtotime($row['due_date'])); ?></td>
                         <td>
-                            <a href="view_submissions.php?id=<?php echo $row['id']; ?>" class="btn-download" style="color:var(--primary); margin-right:10px;" title="View Submissions"><i class="fa-solid fa-eye"></i></a>
                             <a href="?delete=<?php echo $row['id']; ?>" class="btn-delete" onclick="return confirm('Delete?');"><i class="fa-solid fa-trash"></i></a>
                         </td>
                     </tr>

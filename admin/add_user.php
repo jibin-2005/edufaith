@@ -126,7 +126,7 @@ if ($classes_result) {
             <li><a href="manage_parents.php"><i class="fa-solid fa-users"></i> Parents</a></li>
         </ul>
         <div class="logout">
-            <a href="../index.html"><i class="fa-solid fa-right-from-bracket"></i> Log Out</a>
+            <a href="../includes/logout.php"><i class="fa-solid fa-right-from-bracket"></i> Log Out</a>
         </div>
     </div>
 
@@ -198,6 +198,7 @@ if ($classes_result) {
         </div>
     </div>
 
+    <script src="../js/validator.js"></script>
     <script>
         // Show/hide class dropdown based on role
         const roleSelect = document.getElementById('role');
@@ -226,13 +227,55 @@ if ($classes_result) {
         document.addEventListener('DOMContentLoaded', function() {
             console.log('Page loaded, initializing form...'); // Debug log
             toggleClassField();
+
+            // Initialize Validator
+            const rules = {
+                'fullname': (val) => FormValidator.validateText(val, 'Full Name'),
+                'password': (val) => val.length >= 6 ? true : "Password must be at least 6 characters.", 
+                // Email has custom async logic mixed with sync logic
+                'email': (val) => {
+                    const formatCheck = FormValidator.validateEmail(val);
+                    if (formatCheck !== true) return formatCheck;
+                    return true;
+                }
+            };
+            
+            // Live Email Check
+            const emailInput = document.getElementById('email');
+            let debounceTimer;
+            emailInput.addEventListener('input', function() {
+                const email = this.value;
+                FormValidator.hideError(this); // Clear previous errors
+                
+                // 1. Sync format check
+                const formatCheck = FormValidator.validateEmail(email);
+                if (formatCheck !== true) {
+                    FormValidator.showError(this, formatCheck);
+                    return;
+                }
+
+                // 2. Debounced Async Check
+                clearTimeout(debounceTimer);
+                debounceTimer = setTimeout(async () => {
+                    // Show "checking..." state if wanted
+                    const result = await FormValidator.checkEmailAvailability(email);
+                    if (!result.available) {
+                         FormValidator.showError(emailInput, result.message);
+                    } else {
+                         // Optional: Show checkmark?
+                         FormValidator.hideError(emailInput);
+                    }
+                }, 500);
+            });
+
+            // Init other fields
+            FormValidator.init('#addForm', rules, true);
         });
         
         // Also run immediately
         toggleClassField();
     </script>
 
-    <script src="../js/form_validation.js"></script>
     <script type="module" src="../js/add_user_sync.js"></script>
 </body>
 </html>

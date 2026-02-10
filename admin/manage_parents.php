@@ -8,12 +8,31 @@ require '../includes/db.php';
 
 // Handle Linking
 if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['link_child'])) {
-    $parent_id = $_POST['parent_id'];
-    $student_id = $_POST['student_id'];
+    $parent_id = (int)$_POST['parent_id'];
+    $student_id = (int)$_POST['student_id'];
+    // Validate roles
+    $role_check = $conn->prepare("SELECT role FROM users WHERE id = ?");
+    $role_check->bind_param("i", $parent_id);
+    $role_check->execute();
+    $parent_role = $role_check->get_result()->fetch_assoc()['role'] ?? '';
+    $role_check->close();
+
+    $role_check = $conn->prepare("SELECT role FROM users WHERE id = ?");
+    $role_check->bind_param("i", $student_id);
+    $role_check->execute();
+    $student_role = $role_check->get_result()->fetch_assoc()['role'] ?? '';
+    $role_check->close();
+
+    if ($parent_role !== 'parent' || $student_role !== 'student') {
+        $error = "Invalid parent or student selection.";
+    } else {
     
     // Check if link exists
-    $check = $conn->query("SELECT id FROM parent_student WHERE parent_id=$parent_id AND student_id=$student_id");
-    if ($check->num_rows == 0) {
+    $check = $conn->prepare("SELECT id FROM parent_student WHERE parent_id = ? AND student_id = ?");
+    $check->bind_param("ii", $parent_id, $student_id);
+    $check->execute();
+    $check_res = $check->get_result();
+    if ($check_res->num_rows == 0) {
         $stmt = $conn->prepare("INSERT INTO parent_student (parent_id, student_id) VALUES (?, ?)");
         $stmt->bind_param("ii", $parent_id, $student_id);
         if ($stmt->execute()) {
@@ -21,22 +40,31 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['link_child'])) {
         } else {
             $error = "Error linking child.";
         }
+        $stmt->close();
     } else {
         $error = "This child is already linked to this parent.";
+    }
+    $check->close();
     }
 }
 
 // Handle Unlink
 if (isset($_GET['unlink'])) {
     $link_id = intval($_GET['unlink']);
-    $conn->query("DELETE FROM parent_student WHERE id=$link_id");
+    $stmt = $conn->prepare("DELETE FROM parent_student WHERE id = ?");
+    $stmt->bind_param("i", $link_id);
+    $stmt->execute();
+    $stmt->close();
     $msg = "Child unlinked successfully.";
 }
 
 // Handle Parent Deletion
 if (isset($_GET['delete'])) {
     $id = intval($_GET['delete']);
-    $conn->query("DELETE FROM users WHERE id = $id AND role = 'parent'");
+    $stmt = $conn->prepare("DELETE FROM users WHERE id = ? AND role = 'parent'");
+    $stmt->bind_param("i", $id);
+    $stmt->execute();
+    $stmt->close();
     $msg = "Parent deleted successfully.";
 }
 
@@ -85,7 +113,7 @@ while($s = $students->fetch_assoc()) {
             <li><a href="manage_parents.php" class="active"><i class="fa-solid fa-users"></i> Parents</a></li>
             <li><a href="attendance_admin.php"><i class="fa-solid fa-calendar-check"></i> Attendance</a></li>
         </ul>
-        <div class="logout"><a href="../index.html"><i class="fa-solid fa-right-from-bracket"></i> Log Out</a></div>
+        <div class="logout"><a href="../includes/logout.php"><i class="fa-solid fa-right-from-bracket"></i> Log Out</a></div>
     </div>
 
     <div class="main-content">

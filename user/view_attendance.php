@@ -10,12 +10,18 @@ if (!isset($_SESSION['user_id'])) {
 
 $viewer_id = $_SESSION['user_id'];
 $viewer_role = $_SESSION['role'];
-$target_student_id = $_GET['student_id'] ?? $viewer_id;
+$target_student_id = isset($_GET['student_id']) ? (int)$_GET['student_id'] : $viewer_id;
 
 // Authorization Logic
 $authorized = false;
-if ($viewer_role === 'admin' || $viewer_role === 'teacher') {
+if ($viewer_role === 'admin') {
     $authorized = true;
+} elseif ($viewer_role === 'teacher') {
+    $stmt = $conn->prepare("SELECT 1 FROM users u JOIN classes c ON u.class_id = c.id WHERE u.id = ? AND c.teacher_id = ?");
+    $stmt->bind_param("ii", $target_student_id, $viewer_id);
+    $stmt->execute();
+    if ($stmt->get_result()->num_rows > 0) $authorized = true;
+    $stmt->close();
 } elseif ($viewer_role === 'student') {
     if ($target_student_id == $viewer_id) $authorized = true;
 } elseif ($viewer_role === 'parent') {
@@ -24,6 +30,7 @@ if ($viewer_role === 'admin' || $viewer_role === 'teacher') {
     $stmt->bind_param("ii", $viewer_id, $target_student_id);
     $stmt->execute();
     if ($stmt->get_result()->num_rows > 0) $authorized = true;
+    $stmt->close();
 }
 
 if (!$authorized) {
@@ -37,7 +44,7 @@ $stu->execute();
 $student_name = $stu->get_result()->fetch_assoc()['username'] ?? 'Unknown';
 
 // Fetch Attendance
-$sql = "SELECT attendance_date, status FROM attendance WHERE user_id = ? ORDER BY attendance_date DESC";
+$sql = "SELECT date, status FROM attendance WHERE student_id = ? ORDER BY date DESC";
 $stmt = $conn->prepare($sql);
 $stmt->bind_param("i", $target_student_id);
 $stmt->execute();
@@ -59,6 +66,8 @@ $present = 0;
         th, td { padding: 12px; border-bottom: 1px solid #eee; text-align: left; }
         .present { color: #2ecc71; font-weight: bold; }
         .absent { color: #e74c3c; font-weight: bold; }
+        .leave-approved { color: #2ecc71; font-weight: bold; }
+        .pending-leave { color: #ffa117; font-weight: bold; }
         .summary-box { background: #f8f9fa; padding: 20px; margin-bottom: 20px; border-radius: 8px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; text-align: center; }
         .summary-item .label { font-size: 13px; color: #666; display: block; margin-bottom: 5px; }
         .summary-item .value { font-size: 20px; font-weight: bold; color: #333; }
@@ -73,7 +82,7 @@ $present = 0;
             <li><a href="my_class.php"><i class="fa-solid fa-user-group"></i> My Class</a></li>
             <li><a href="#" class="active"><i class="fa-solid fa-clipboard-check"></i> Attendance</a></li>
         </ul>
-        <div class="logout"><a href="../index.html"><i class="fa-solid fa-right-from-bracket"></i> Log Out</a></div>
+        <div class="logout"><a href="../includes/logout.php"><i class="fa-solid fa-right-from-bracket"></i> Log Out</a></div>
     </div>
 
     <div class="main-content">
@@ -90,15 +99,15 @@ $present = 0;
             while($row = $result->fetch_assoc()) {
                 $rows[] = $row;
                 $total++;
-                if ($row['status'] === 'present') $present++;
+                if ($row['status'] === 'Present' || $row['status'] === 'Leave Approved') $present++;
 
                 // Monthly Stats
-                $monthKey = date('Y-m', strtotime($row['attendance_date']));
+                $monthKey = date('Y-m', strtotime($row['date']));
                 if (!isset($months[$monthKey])) {
                     $months[$monthKey] = ['total' => 0, 'present' => 0];
                 }
                 $months[$monthKey]['total']++;
-                if ($row['status'] === 'present') {
+                if ($row['status'] === 'Present' || $row['status'] === 'Leave Approved') {
                     $months[$monthKey]['present']++;
                 }
             }
@@ -148,10 +157,14 @@ $present = 0;
             <tbody>
                 <?php foreach($rows as $row): ?>
                     <tr>
-                        <td><?= date('d M Y (l)', strtotime($row['attendance_date'])) ?></td>
-                        <td class="<?= strtolower($row['status']) ?>">
-                            <?php if ($row['status'] == 'present'): ?>
+                        <td><?= date('d M Y (l)', strtotime($row['date'])) ?></td>
+                        <td class="<?= strtolower(str_replace(' ', '-', $row['status'])) ?>">
+                            <?php if ($row['status'] == 'Present'): ?>
                                 <i class="fa-solid fa-check-circle"></i> Present
+                            <?php elseif ($row['status'] == 'Leave Approved'): ?>
+                                <i class="fa-solid fa-envelope-open"></i> Leave Approved
+                            <?php elseif ($row['status'] == 'Pending Leave'): ?>
+                                <i class="fa-solid fa-envelope"></i> Pending Leave
                             <?php else: ?>
                                 <i class="fa-solid fa-times-circle"></i> Absent
                             <?php endif; ?>

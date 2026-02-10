@@ -4,6 +4,7 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'student') {
     die("Unauthorized access.");
 }
 require 'db.php';
+require 'validation_helper.php';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $student_id = $_SESSION['user_id'];
@@ -12,14 +13,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     // 1. Basic validation
     if (empty($leave_date) || empty($reason)) {
-        header("Location: ../user/dashboard_student.php?leave_error=empty_fields");
+        header("Location: ../user/attendance_student.php?leave_error=empty_fields");
         exit;
     }
 
-    // 2. Sunday validation
+    // 2. Future Date Validation (New Requirement)
+    $valDate = Validator::validateDate($leave_date, 'Leave Date', 'future_only');
+    if ($valDate !== true) {
+         // Pass error message back? For now simple redirect with error code
+         // Ideally modify attendance_student.php to show specific errors
+         header("Location: ../user/attendance_student.php?leave_error=past_date"); 
+         exit;
+    }
+
+    // 3. Sunday validation
     $weekday = date('w', strtotime($leave_date));
     if ($weekday != 0) {
-        header("Location: ../user/dashboard_student.php?leave_error=not_sunday");
+        header("Location: ../user/attendance_student.php?leave_error=not_sunday");
         exit;
     }
 
@@ -28,7 +38,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $stmt_check->bind_param("is", $student_id, $leave_date);
     $stmt_check->execute();
     if ($stmt_check->get_result()->num_rows > 0) {
-        header("Location: ../user/dashboard_student.php?leave_error=duplicate");
+        header("Location: ../user/attendance_student.php?leave_error=duplicate");
         exit;
     }
 
@@ -43,9 +53,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $stmt_insert->bind_param("iiss", $student_id, $class_id, $leave_date, $reason);
 
     if ($stmt_insert->execute()) {
-        header("Location: ../user/dashboard_student.php?leave_msg=success");
+        // 6. Mark attendance as Pending Leave for the date (upsert)
+        $teacher_id = 0;
+        $stmt_teacher = $conn->prepare("SELECT teacher_id FROM classes WHERE id = ?");
+        $stmt_teacher->bind_param("i", $class_id);
+        $stmt_teacher->execute();
+        $teacher_row = $stmt_teacher->get_result()->fetch_assoc();
+        if ($teacher_row && !empty($teacher_row['teacher_id'])) {
+            $teacher_id = (int)$teacher_row['teacher_id'];
+        }
+        $stmt_teacher->close();
+
+        $stmt_att = $conn->prepare("INSERT INTO attendance (student_id, class_id, teacher_id, date, status)
+                                    VALUES (?, ?, ?, ?, 'Pending Leave')
+                                    ON DUPLICATE KEY UPDATE status = 'Pending Leave', class_id = VALUES(class_id), teacher_id = VALUES(teacher_id)");
+        $stmt_att->bind_param("iiis", $student_id, $class_id, $teacher_id, $leave_date);
+        $stmt_att->execute();
+        $stmt_att->close();
+
+        header("Location: ../user/attendance_student.php?leave_msg=success");
     } else {
-        header("Location: ../user/dashboard_student.php?leave_error=db_error");
+        header("Location: ../user/attendance_student.php?leave_error=db_error");
     }
     
     $stmt_insert->close();

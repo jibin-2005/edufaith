@@ -6,6 +6,59 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'student') {
 }
 
 require '../includes/db.php';
+
+$student_id = $_SESSION['user_id'];
+
+// Profile picture
+$profile_picture = null;
+$stmt_pic = $conn->prepare("SELECT profile_picture FROM users WHERE id = ?");
+$stmt_pic->bind_param("i", $student_id);
+$stmt_pic->execute();
+$profile_picture = $stmt_pic->get_result()->fetch_assoc()['profile_picture'] ?? null;
+$stmt_pic->close();
+
+// Attendance summary
+$stmt_att = $conn->prepare("SELECT COUNT(*) AS total,
+                           SUM(CASE WHEN status IN ('Present','Leave Approved') THEN 1 ELSE 0 END) AS present
+                           FROM attendance WHERE student_id = ?");
+$stmt_att->bind_param("i", $student_id);
+$stmt_att->execute();
+$att_row = $stmt_att->get_result()->fetch_assoc();
+$stmt_att->close();
+$total_days = (int)($att_row['total'] ?? 0);
+$present_days = (int)($att_row['present'] ?? 0);
+$attendance_percent = $total_days > 0 ? round(($present_days / $total_days) * 100, 1) : 0;
+
+// Pending leave requests
+$stmt_leaves = $conn->prepare("SELECT COUNT(*) AS count FROM leave_requests WHERE student_id = ? AND status = 'pending'");
+$stmt_leaves->bind_param("i", $student_id);
+$stmt_leaves->execute();
+$pending_leaves = (int)($stmt_leaves->get_result()->fetch_assoc()['count'] ?? 0);
+$stmt_leaves->close();
+
+// Upcoming events count
+$event_res = $conn->query("SELECT COUNT(*) AS count FROM events WHERE event_date >= CURDATE()");
+$upcoming_events = $event_res ? (int)$event_res->fetch_assoc()['count'] : 0;
+
+// Student class
+$stmt_class = $conn->prepare("SELECT class_id FROM users WHERE id = ?");
+$stmt_class->bind_param("i", $student_id);
+$stmt_class->execute();
+$class_id = $stmt_class->get_result()->fetch_assoc()['class_id'] ?? null;
+$stmt_class->close();
+
+// Assignments due count
+$assignments_due = 0;
+if ($class_id) {
+    $stmt_assign = $conn->prepare("SELECT COUNT(*) AS count FROM assignments WHERE class_id = ? AND due_date >= CURDATE()");
+    $stmt_assign->bind_param("i", $class_id);
+    $stmt_assign->execute();
+    $assignments_due = (int)($stmt_assign->get_result()->fetch_assoc()['count'] ?? 0);
+    $stmt_assign->close();
+} else {
+    $assign_res = $conn->query("SELECT COUNT(*) AS count FROM assignments WHERE class_id IS NULL AND due_date >= CURDATE()");
+    $assignments_due = $assign_res ? (int)$assign_res->fetch_assoc()['count'] : 0;
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -30,15 +83,16 @@ require '../includes/db.php';
         </div>
         <ul class="menu">
             <li><a href="dashboard_student.php" class="active"><i class="fa-solid fa-table-columns"></i> Dashboard</a></li>
-            <li><a href="attendance_student.php"><i class="fa-solid fa-calendar-check"></i> Attendance</a></li>
+            <li><a href="attendance_student.php"><i class="fa-solid fa-clipboard-list"></i> Attendance History</a></li>
             <li><a href="leave_student.php"><i class="fa-solid fa-envelope-open-text"></i> Leave Requests</a></li>
             <li><a href="my_lessons.php"><i class="fa-solid fa-book-bible"></i> My Lessons</a></li>
             <li><a href="view_results.php"><i class="fa-solid fa-chart-line"></i> Results</a></li>
             <li><a href="bulletins.php"><i class="fa-solid fa-bullhorn"></i> Bulletins</a></li>
             <li><a href="events.php"><i class="fa-solid fa-calendar-days"></i> Events</a></li>
+            <li><a href="profile.php"><i class="fa-solid fa-user-gear"></i> Profile</a></li>
         </ul>
         <div class="logout">
-            <a href="../index.html"><i class="fa-solid fa-right-from-bracket"></i> Log Out</a>
+            <a href="../includes/logout.php"><i class="fa-solid fa-right-from-bracket"></i> Log Out</a>
         </div>
     </div>
 
@@ -48,12 +102,64 @@ require '../includes/db.php';
         <div class="top-bar">
             <div class="welcome-text">
                 <h2>Welcome back, <?php echo htmlspecialchars($_SESSION['username']); ?></h2>
-                <p>“Thy word is a lamp unto my feet.” — Psalm 119:105</p>
+                <p>Thy word is a lamp unto my feet. - Psalm 119:105</p>
             </div>
             <div class="user-profile">
                 <span><?php echo htmlspecialchars($_SESSION['username']); ?></span>
                 <div class="user-img">
-                    <img src="https://ui-avatars.com/api/?name=<?php echo urlencode($_SESSION['username']); ?>&background=random" alt="Student">
+                    <?php if (!empty($profile_picture) && file_exists('../' . $profile_picture)): ?>
+                        <img src="../<?php echo htmlspecialchars($profile_picture); ?>" alt="Student">
+                    <?php else: ?>
+                        <img src="https://ui-avatars.com/api/?name=<?php echo urlencode($_SESSION['username']); ?>&background=random" alt="Student">
+                    <?php endif; ?>
+                </div>
+            </div>
+        </div>
+
+        <div class="grid-container" style="margin-bottom: 20px;">
+            <div class="card">
+                <div class="card-info">
+                    <h3><?php echo $attendance_percent; ?>%</h3>
+                    <p>Attendance Rate</p>
+                </div>
+                <div class="card-icon bg-green">
+                    <i class="fa-solid fa-chart-line"></i>
+                </div>
+            </div>
+            <div class="card">
+                <div class="card-info">
+                    <h3><?php echo $present_days; ?></h3>
+                    <p>Days Present</p>
+                </div>
+                <div class="card-icon bg-blue">
+                    <i class="fa-solid fa-user-check"></i>
+                </div>
+            </div>
+            <div class="card">
+                <div class="card-info">
+                    <h3><?php echo $pending_leaves; ?></h3>
+                    <p>Pending Leaves</p>
+                </div>
+                <div class="card-icon bg-purple">
+                    <i class="fa-solid fa-envelope-open-text"></i>
+                </div>
+            </div>
+            <div class="card">
+                <div class="card-info">
+                    <h3><?php echo $upcoming_events; ?></h3>
+                    <p>Upcoming Events</p>
+                </div>
+                <div class="card-icon bg-blue">
+                    <i class="fa-solid fa-calendar-days"></i>
+                </div>
+            </div>
+            <div class="card">
+                <div class="card-info">
+                    <h3><?php echo $assignments_due; ?></h3>
+                    <p>Assignments Due</p>
+                </div>
+                <div class="card-icon bg-orange">
+                    <i class="fa-solid fa-book"></i>
                 </div>
             </div>
         </div>
@@ -109,7 +215,6 @@ require '../includes/db.php';
         </div>
         
         <!-- ASSIGNMENTS SECTION -->
-        <!-- ASSIGNMENTS SECTION -->
         <div class="panel" style="margin-top: 24px;">
             <div class="panel-header">
                 <h3>Assignments Due</h3>
@@ -124,22 +229,13 @@ require '../includes/db.php';
                 </thead>
                 <tbody>
                     <?php
-                    // Get Student's Class ID
-                    $my_id = $_SESSION['user_id'];
-                    $c_res = $conn->query("SELECT class_id FROM users WHERE id = $my_id");
-                    $my_class = $c_res->fetch_assoc()['class_id'];
-                    
-                    // Display assignments for this class or global ones (class_id IS NULL)
-                    // We assume strictly class based now, but good to handle NULL if needed for "All"
-                    // Modified to include class name for clarity
-                    if ($my_class) {
+                    if ($class_id) {
                          $a_sql = "SELECT a.title, a.due_date, c.class_name 
                                    FROM assignments a 
                                    LEFT JOIN classes c ON a.class_id = c.id 
-                                   WHERE a.class_id = $my_class AND a.due_date >= CURDATE() 
+                                   WHERE a.class_id = $class_id AND a.due_date >= CURDATE() 
                                    ORDER BY a.due_date ASC LIMIT 5";
                     } else {
-                         //$a_sql = "SELECT title, due_date FROM assignments WHERE 1=0"; // No class, no assignments?
                          $a_sql = "SELECT title, due_date, 'All' as class_name FROM assignments WHERE class_id IS NULL AND due_date >= CURDATE()";
                     }
 
@@ -172,7 +268,7 @@ require '../includes/db.php';
                 $exam2_marks = null;
                 $exam2_date = null;
                 
-                $r_sql = "SELECT exam_type, marks, updated_at FROM results WHERE student_id = $my_id";
+                $r_sql = "SELECT exam_type, marks, updated_at FROM results WHERE student_id = $student_id";
                 $r_res = $conn->query($r_sql);
                 if ($r_res && $r_res->num_rows > 0) {
                     while($r_row = $r_res->fetch_assoc()) {
@@ -209,39 +305,22 @@ require '../includes/db.php';
                     <?php endif; ?>
                 </div>
             </div>
-            </div>
         </div>
         
     </div>
 
     <script type="module">
         import RealTimeSync from '../js/realtime_sync.js';
-
-        const studentId = <?php echo $_SESSION['user_id']; ?>;
-
-        RealTimeSync.listen('result_updates', (data) => {
-            if (data.student_id == studentId) {
-                console.log('Results updated, refreshing widget...');
-                fetch(window.location.href)
-                    .then(response => response.text())
-                    .then(html => {
-                        const parser = new DOMParser();
-                        const doc = parser.parseFromString(html, 'text/html');
-                        const newGrid = doc.querySelector('.panel:last-of-type div[style*="grid-template-columns: 1fr 1fr"]');
-                        if (newGrid) {
-                            document.querySelector('.panel:last-of-type div[style*="grid-template-columns: 1fr 1fr"]').innerHTML = newGrid.innerHTML;
-                        }
-                    });
-            }
-        });
-
-        RealTimeSync.listen('leave_updates', (data) => {
-            if (data.student_id == studentId) {
-                console.log('Leave status updated, refreshing...');
-                // You might have a specific leave widget, for now reload dashboard
-                window.location.reload();
-            }
-        });
+        RealTimeSync.listen('attendance_updates', () => window.location.reload());
+        RealTimeSync.listen('leave_updates', () => window.location.reload());
+        RealTimeSync.listen('result_updates', () => window.location.reload());
     </script>
+    <script>
+        // Auto-refresh dashboard every 60 seconds for live stats
+        setInterval(() => {
+            window.location.reload();
+        }, 60000);
+    </script>
+
 </body>
 </html>

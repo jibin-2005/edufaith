@@ -8,6 +8,9 @@ require '../includes/db.php';
 
 $teacher_id = $_SESSION['user_id'];
 $active_exam = $_GET['exam'] ?? 'exam_1'; // Default to exam_1
+if (!in_array($active_exam, ['exam_1', 'exam_2'], true)) {
+    $active_exam = 'exam_1';
+}
 
 // Fetch students from teacher's class with their marks for the selected exam
 $sql = "SELECT u.id, u.username, r.marks, r.updated_at 
@@ -64,7 +67,7 @@ $students = $stmt->get_result();
             <li><a href="bulletins.php"><i class="fa-solid fa-bullhorn"></i> Bulletins</a></li>
             <li><a href="events.php"><i class="fa-solid fa-calendar-days"></i> Events</a></li>
         </ul>
-        <div class="logout"><a href="../index.html"><i class="fa-solid fa-right-from-bracket"></i> Log Out</a></div>
+        <div class="logout"><a href="../includes/logout.php"><i class="fa-solid fa-right-from-bracket"></i> Log Out</a></div>
     </div>
 
     <div class="main-content">

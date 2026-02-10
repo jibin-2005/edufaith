@@ -28,7 +28,7 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'student') {
             <li><a href="#" class="active"><i class="fa-solid fa-star"></i> Achievements</a></li>
             <li><a href="calendar.php"><i class="fa-solid fa-calendar-check"></i> Calendar</a></li>
         </ul>
-        <div class="logout"><a href="../index.html"><i class="fa-solid fa-right-from-bracket"></i> Log Out</a></div>
+        <div class="logout"><a href="../includes/logout.php"><i class="fa-solid fa-right-from-bracket"></i> Log Out</a></div>
     </div>
 
     <div class="main-content">

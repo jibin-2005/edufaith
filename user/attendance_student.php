@@ -23,7 +23,7 @@ $months = [];
 while($row = $result->fetch_assoc()) {
     $rows[] = $row;
     $total++;
-    if ($row['status'] === 'Present' || $row['status'] === 'Late') $present++;
+    if ($row['status'] === 'Present') $present++;
 
     // Monthly Stats
     $monthKey = date('Y-m', strtotime($row['date']));
@@ -31,7 +31,7 @@ while($row = $result->fetch_assoc()) {
         $months[$monthKey] = ['total' => 0, 'present' => 0];
     }
     $months[$monthKey]['total']++;
-    if ($row['status'] === 'Present' || $row['status'] === 'Late') {
+    if ($row['status'] === 'Present') {
         $months[$monthKey]['present']++;
     }
 }
@@ -50,7 +50,8 @@ $overall_percent = $total > 0 ? round(($present / $total) * 100, 1) : 0;
         .stat-icon { width: 50px; height: 50px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 20px; }
         .status-present { color: #2ecc71; background: #eafaf1; padding: 4px 8px; border-radius: 4px; font-weight: 600; }
         .status-absent { color: #e74c3c; background: #fdf2f2; padding: 4px 8px; border-radius: 4px; font-weight: 600; }
-        .status-late { color: #f1c40f; background: #fef9e7; padding: 4px 8px; border-radius: 4px; font-weight: 600; }
+        .status-leave-approved { color: #2ecc71; background: #eafaf1; padding: 4px 8px; border-radius: 4px; font-weight: 600; }
+        .status-pending-leave { color: #ffa117; background: #fff4e5; padding: 4px 8px; border-radius: 4px; font-weight: 600; }
         
         .month-box { background: white; padding: 15px; border-radius: 8px; margin-bottom: 10px; border-left: 5px solid var(--primary); }
         .progress-bg { background: #eee; height: 8px; border-radius: 4px; margin-top: 10px; overflow: hidden; }
@@ -74,7 +75,7 @@ $overall_percent = $total > 0 ? round(($present / $total) * 100, 1) : 0;
             <li><a href="bulletins.php"><i class="fa-solid fa-bullhorn"></i> Bulletins</a></li>
             <li><a href="events.php"><i class="fa-solid fa-calendar-days"></i> Events</a></li>
         </ul>
-        <div class="logout"><a href="../index.html"><i class="fa-solid fa-right-from-bracket"></i> Log Out</a></div>
+        <div class="logout"><a href="../includes/logout.php"><i class="fa-solid fa-right-from-bracket"></i> Log Out</a></div>
     </div>
 
     <div class="main-content">
@@ -126,7 +127,7 @@ $overall_percent = $total > 0 ? round(($present / $total) * 100, 1) : 0;
             <form action="../includes/apply_leave_process.php" method="POST" style="display: grid; grid-template-columns: 1fr 2fr auto; gap: 15px; align-items: end;">
                 <div>
                     <label>Sunday Date</label>
-                    <input type="date" name="leave_date" required>
+                    <input type="date" name="leave_date" required min="<?php echo date('Y-m-d'); ?>">
                 </div>
                 <div>
                     <label>Reason for Leave</label>
@@ -158,7 +159,7 @@ $overall_percent = $total > 0 ? round(($present / $total) * 100, 1) : 0;
                                 <tr>
                                     <td><?php echo date('d M Y (l)', strtotime($row['date'])); ?></td>
                                     <td>
-                                        <span class="status-<?php echo strtolower($row['status']); ?>">
+                                        <span class="status-<?php echo strtolower(str_replace(' ', '-', $row['status'])); ?>">
                                             <?php echo $row['status']; ?>
                                         </span>
                                     </td>

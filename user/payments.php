@@ -22,7 +22,7 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'parent') {
             <li><a href="#" class="active"><i class="fa-solid fa-hand-holding-dollar"></i> Payments</a></li>
             <li><a href="messages.php"><i class="fa-solid fa-envelope"></i> Messages</a></li>
         </ul>
-        <div class="logout"><a href="../index.html"><i class="fa-solid fa-right-from-bracket"></i> Log Out</a></div>
+        <div class="logout"><a href="../includes/logout.php"><i class="fa-solid fa-right-from-bracket"></i> Log Out</a></div>
     </div>
 
     <div class="main-content">

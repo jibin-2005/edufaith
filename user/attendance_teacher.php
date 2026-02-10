@@ -14,29 +14,48 @@ $is_sunday = (date('w', strtotime($today)) == 0);
 $default_date = $is_sunday ? $today : date('Y-m-d', strtotime('last Sunday'));
 
 $date_filter = $_GET['date'] ?? $default_date;
-$class_id = $_GET['class_id'] ?? '';
+if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $date_filter)) {
+    $date_filter = $default_date;
+}
+$class_id = isset($_GET['class_id']) ? (int)$_GET['class_id'] : 0;
 
 // Fetch assigned classes for this teacher
-$sql_classes = "SELECT id, class_name FROM classes WHERE teacher_id = $teacher_id ORDER BY class_name ASC";
-$result_classes = $conn->query($sql_classes);
+$stmt_classes = $conn->prepare("SELECT id, class_name FROM classes WHERE teacher_id = ? ORDER BY class_name ASC");
+$stmt_classes->bind_param("i", $teacher_id);
+$stmt_classes->execute();
+$result_classes = $stmt_classes->get_result();
 
 // Fetch students if class is selected
 $students = [];
 if ($class_id) {
+    // Verify class belongs to this teacher
+    $check_class = $conn->prepare("SELECT 1 FROM classes WHERE id = ? AND teacher_id = ?");
+    $check_class->bind_param("ii", $class_id, $teacher_id);
+    $check_class->execute();
+    if ($check_class->get_result()->num_rows === 0) {
+        $class_id = 0;
+    }
+    $check_class->close();
+}
+
+if ($class_id) {
     // Fetch students and their current attendance for that date
     // Also fetch leave requirements
-    $sql_students = "SELECT u.id, u.username, a.status, lr.status as leave_status 
-                     FROM users u 
-                     LEFT JOIN attendance a ON u.id = a.student_id AND a.date = '$date_filter' AND a.class_id = $class_id
-                     LEFT JOIN leave_requests lr ON u.id = lr.student_id AND lr.leave_date = '$date_filter'
-                     WHERE u.role = 'student' AND u.class_id = $class_id
-                     ORDER BY u.username ASC";
-    $res_students = $conn->query($sql_students);
+    $stmt_students = $conn->prepare("SELECT u.id, u.username, a.status, lr.status as leave_status 
+                                     FROM users u 
+                                     LEFT JOIN attendance a ON u.id = a.student_id AND a.date = ? AND a.class_id = ?
+                                     LEFT JOIN leave_requests lr ON u.id = lr.student_id AND lr.leave_date = ?
+                                     WHERE u.role = 'student' AND u.class_id = ?
+                                     ORDER BY u.username ASC");
+    $stmt_students->bind_param("sisi", $date_filter, $class_id, $date_filter, $class_id);
+    $stmt_students->execute();
+    $res_students = $stmt_students->get_result();
     if ($res_students) {
         while ($row = $res_students->fetch_assoc()) {
             $students[] = $row;
         }
     }
+    $stmt_students->close();
 }
 ?>
 <!DOCTYPE html>
@@ -61,7 +80,6 @@ if ($class_id) {
         
         input[value="Present"]:checked + .radio-tile { border-color: #2ecc71; color: #2ecc71; background: #eafaf1; }
         input[value="Absent"]:checked + .radio-tile { border-color: #e74c3c; color: #e74c3c; background: #fdf2f2; }
-        input[value="Late"]:checked + .radio-tile { border-color: #f1c40f; color: #f1c40f; background: #fef9e7; }
         
         .sunday-warning { background: #fff4e5; color: #663c00; padding: 10px; border-radius: 6px; margin-bottom: 20px; border-left: 4px solid #ffa117; }
         .leave-badge { font-size: 10px; padding: 2px 6px; border-radius: 4px; margin-left: 8px; font-weight: 700; text-transform: uppercase; }
@@ -82,7 +100,7 @@ if ($class_id) {
             <li><a href="bulletins.php"><i class="fa-solid fa-bullhorn"></i> Bulletins</a></li>
             <li><a href="events.php"><i class="fa-solid fa-calendar-days"></i> Events</a></li>
         </ul>
-        <div class="logout"><a href="../index.html"><i class="fa-solid fa-right-from-bracket"></i> Log Out</a></div>
+        <div class="logout"><a href="../includes/logout.php"><i class="fa-solid fa-right-from-bracket"></i> Log Out</a></div>
     </div>
 
     <div class="main-content">
@@ -165,14 +183,6 @@ if ($class_id) {
                                                     <div class="radio-tile">
                                                         <i class="fa-solid fa-xmark"></i>
                                                         <span>Absent</span>
-                                                    </div>
-                                                </label>
-                                                <label>
-                                                    <input type="radio" name="attendance[<?php echo $s['id']; ?>]" value="Late" 
-                                                        <?php echo ($s['status'] == 'Late') ? 'checked' : ''; ?>>
-                                                    <div class="radio-tile">
-                                                        <i class="fa-solid fa-clock"></i>
-                                                        <span>Late</span>
                                                     </div>
                                                 </label>
                                                 <?php if ($s['leave_status'] === 'approved'): ?>

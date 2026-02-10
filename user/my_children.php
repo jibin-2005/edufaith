@@ -8,13 +8,20 @@ require '../includes/db.php';
 
 $parent_id = $_SESSION['user_id'];
 
-// Fetch Linked Children
-$sql = "SELECT s.id, s.username, s.email, c.class_name 
+$sql = "SELECT s.id, s.username, s.email, c.class_name, c.teacher_id 
         FROM parent_student ps 
         JOIN users s ON ps.student_id = s.id 
         LEFT JOIN classes c ON s.class_id = c.id
-        WHERE ps.parent_id = $parent_id";
-$children = $conn->query($sql);
+        WHERE ps.parent_id = ?";
+$stmt = $conn->prepare($sql);
+$stmt->bind_param("i", $parent_id);
+$stmt->execute();
+$children_res = $stmt->get_result();
+$children = [];
+while ($row = $children_res->fetch_assoc()) {
+    $children[] = $row;
+}
+$stmt->close();
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -24,13 +31,15 @@ $children = $conn->query($sql);
     <link rel="stylesheet" href="../css/dashboard.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        .child-card { background: white; padding: 20px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-bottom: 20px; display: flex; align-items: center; justify-content: space-between; }
+        .child-card { background: white; padding: 20px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-bottom: 20px; display: flex; align-items: center; justify-content: space-between; gap: 20px; }
         .child-info h3 { margin: 0 0 5px 0; color: #2c3e50; }
         .child-info p { margin: 0; color: #7f8c8d; font-size: 0.9rem; }
-        .stats { display: flex; gap: 20px; }
+        .stats { display: flex; gap: 20px; align-items: center; }
         .stat-box { text-align: center; }
         .stat-val { font-size: 1.2rem; font-weight: bold; color: var(--primary); }
         .stat-label { font-size: 0.8rem; color: #777; }
+        .btn-link { padding: 6px 12px; border-radius: 16px; background: #f0f4f8; color: var(--primary); text-decoration: none; font-weight: 600; font-size: 12px; }
+        .btn-link:hover { background: var(--primary); color: #fff; }
     </style>
 </head>
 <body>
@@ -40,10 +49,12 @@ $children = $conn->query($sql);
             <li><a href="dashboard_parent.php"><i class="fa-solid fa-table-columns"></i> Dashboard</a></li>
             <li><a href="attendance_parent.php"><i class="fa-solid fa-calendar-check"></i> Child Attendance</a></li>
             <li><a href="my_children.php" class="active"><i class="fa-solid fa-users"></i> My Children</a></li>
+            <li><a href="results_parent.php"><i class="fa-solid fa-chart-line"></i> Results</a></li>
             <li><a href="bulletins.php"><i class="fa-solid fa-bullhorn"></i> Bulletins</a></li>
             <li><a href="events.php"><i class="fa-solid fa-calendar-days"></i> Events</a></li>
+            <li><a href="messages.php"><i class="fa-solid fa-envelope"></i> Messages</a></li>
         </ul>
-        <div class="logout"><a href="../index.html"><i class="fa-solid fa-right-from-bracket"></i> Log Out</a></div>
+        <div class="logout"><a href="../includes/logout.php"><i class="fa-solid fa-right-from-bracket"></i> Log Out</a></div>
     </div>
 
     <div class="main-content">
@@ -52,8 +63,34 @@ $children = $conn->query($sql);
             <div class="user-profile"><span><?php echo htmlspecialchars($_SESSION['username']); ?></span></div>
         </div>
 
-        <?php if ($children->num_rows > 0): ?>
-            <?php while($child = $children->fetch_assoc()): ?>
+        <?php if (count($children) > 0): ?>
+            <?php foreach ($children as $child): ?>
+                <?php
+                $child_id = (int)$child['id'];
+
+                $att_stmt = $conn->prepare("SELECT COUNT(*) AS total, 
+                                           SUM(CASE WHEN status IN ('Present','Leave Approved') THEN 1 ELSE 0 END) AS present 
+                                           FROM attendance WHERE student_id = ?");
+                $att_stmt->bind_param("i", $child_id);
+                $att_stmt->execute();
+                $att_row = $att_stmt->get_result()->fetch_assoc();
+                $att_stmt->close();
+                $total_days = (int)($att_row['total'] ?? 0);
+                $present_days = (int)($att_row['present'] ?? 0);
+                $att_percent = $total_days > 0 ? round(($present_days / $total_days) * 100, 1) : 0;
+
+                $exam_stmt = $conn->prepare("SELECT exam_type, marks FROM results WHERE student_id = ?");
+                $exam_stmt->bind_param("i", $child_id);
+                $exam_stmt->execute();
+                $exam_res = $exam_stmt->get_result();
+                $exam1 = null;
+                $exam2 = null;
+                while($e = $exam_res->fetch_assoc()) {
+                    if ($e['exam_type'] === 'exam_1') $exam1 = $e['marks'];
+                    if ($e['exam_type'] === 'exam_2') $exam2 = $e['marks'];
+                }
+                $exam_stmt->close();
+                ?>
                 <div class="child-card">
                     <div class="child-info">
                         <h3><?php echo htmlspecialchars($child['username']); ?></h3>
@@ -62,20 +99,26 @@ $children = $conn->query($sql);
                     </div>
                     <div class="stats">
                         <div class="stat-box">
-                            <!-- Placeholder stats - would query real attendance/grades per child -->
-                            <div class="stat-val">92%</div>
+                            <div class="stat-val"><?php echo $att_percent; ?>%</div>
                             <div class="stat-label">Attendance</div>
                         </div>
                         <div class="stat-box">
-                            <div class="stat-val">A</div>
-                            <div class="stat-label">Grade</div>
+                            <div class="stat-val"><?php echo $exam1 !== null ? $exam1 : 'N/A'; ?></div>
+                            <div class="stat-label">Exam 1</div>
                         </div>
-                         <div class="stat-box">
-                            <a href="#" style="font-size:0.9rem; color:blue;">View Report</a>
+                        <div class="stat-box">
+                            <div class="stat-val"><?php echo $exam2 !== null ? $exam2 : 'N/A'; ?></div>
+                            <div class="stat-label">Exam 2</div>
+                        </div>
+                        <div class="stat-box">
+                            <a class="btn-link" href="attendance_parent.php?student_id=<?php echo $child_id; ?>">Attendance</a>
+                        </div>
+                        <div class="stat-box">
+                            <a class="btn-link" href="results_parent.php?student_id=<?php echo $child_id; ?>">Results</a>
                         </div>
                     </div>
                 </div>
-            <?php endwhile; ?>
+            <?php endforeach; ?>
         <?php else: ?>
             <div style="text-align:center; padding:50px; background:white; border-radius:10px;">
                 <p>No children linked to your account yet.</p>

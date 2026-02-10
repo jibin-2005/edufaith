@@ -56,8 +56,53 @@ require '../includes/db.php';
         </div>
     </div>
 
-    <!-- Validation & Firebase Scripts -->
-    <script src="../js/form_validation.js"></script>
+    <!-- Validation Scripts -->
+    <script src="../js/validator.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Initialize Validator
+            const rules = {
+                'fullname': (val) => FormValidator.validateText(val, 'Parent Name'),
+                'password': (val) => val.length >= 6 ? true : "Password must be at least 6 characters.", 
+                'email': (val) => {
+                    const formatCheck = FormValidator.validateEmail(val);
+                    if (formatCheck !== true) return formatCheck;
+                    return true;
+                }
+            };
+            
+            // Live Email Check
+            const emailInput = document.getElementById('email');
+            let debounceTimer;
+            emailInput.addEventListener('input', function() {
+                const email = this.value;
+                FormValidator.hideError(this); // Clear previous errors
+                
+                // 1. Sync format check
+                const formatCheck = FormValidator.validateEmail(email);
+                if (formatCheck !== true) {
+                    FormValidator.showError(this, formatCheck);
+                    return;
+                }
+
+                // 2. Debounced Async Check
+                clearTimeout(debounceTimer);
+                debounceTimer = setTimeout(async () => {
+                   const result = await FormValidator.checkEmailAvailability(email);
+                   if (!result.available) {
+                        FormValidator.showError(emailInput, result.message);
+                   } else {
+                        FormValidator.hideError(emailInput);
+                   }
+                }, 500);
+            });
+
+            // Init
+            FormValidator.init('#addForm', rules, true);
+        });
+    </script>
+
+    <!-- Firebase Scripts -->
     <script type="module" src="../js/add_user_sync.js"></script>
 </body>
 </html>

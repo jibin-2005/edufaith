@@ -27,42 +27,20 @@ $check->close();
 
 // Handle Update
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
-    require '../includes/validation.php';
-    $validator = new Validator();
+    $username = $_POST['fullname'];
+    $email = $_POST['email'];
+    $class_id = !empty($_POST['class_id']) ? $_POST['class_id'] : NULL;
+    $status = $_POST['status'];
     
-    // Get and sanitize input
-    $username = $validator->sanitize($_POST['fullname'] ?? '');
-    $email = $validator->sanitize($_POST['email'] ?? '');
-    $class_id = !empty($_POST['class_id']) ? intval($_POST['class_id']) : NULL;
-    $status = $validator->sanitize($_POST['status'] ?? 'active');
-    
-    // Validate fields
-    $validator->validateFullName($username, 'Full Name');
-    $validator->validateEmail($email, 'Email');
-    
-    // Check if email already exists (excluding current user)
-    if ($validator->isValid()) {
-        $validator->checkEmailExists($email, $conn, $user_id, 'Email');
-    }
-    
-    // Validate status
-    if (!in_array($status, ['active', 'inactive'])) {
-        $validator->addError('Status', 'Invalid status selected');
-    }
-    
-    if ($validator->isValid()) {
-        $stmt = $conn->prepare("UPDATE users SET username = ?, email = ?, class_id = ?, status = ? WHERE id = ?");
-        $stmt->bind_param("ssisi", $username, $email, $class_id, $status, $user_id);
+    $stmt = $conn->prepare("UPDATE users SET username = ?, email = ?, class_id = ?, status = ? WHERE id = ?");
+    $stmt->bind_param("ssisi", $username, $email, $class_id, $status, $user_id);
 
-        if ($stmt->execute()) {
-            $message = "Student details updated successfully.";
-        } else {
-            $message = "Error: " . $stmt->error;
-        }
-        $stmt->close();
+    if ($stmt->execute()) {
+        $message = "Student details updated successfully.";
     } else {
-        $message = "Error: " . $validator->getFirstError();
+        $message = "Error: " . $stmt->error;
     }
+    $stmt->close();
 }
 
 // Fetch current data
@@ -101,7 +79,7 @@ $classes = $conn->query("SELECT id, class_name FROM classes ORDER BY class_name 
             <li><a href="dashboard_admin.php"><i class="fa-solid fa-table-columns"></i> Dashboard</a></li>
             <li><a href="manage_students.php" class="active"><i class="fa-solid fa-user-graduate"></i> Students</a></li>
         </ul>
-        <div class="logout"><a href="../index.html"><i class="fa-solid fa-right-from-bracket"></i> Log Out</a></div>
+        <div class="logout"><a href="../includes/logout.php"><i class="fa-solid fa-right-from-bracket"></i> Log Out</a></div>
     </div>
 
     <div class="main-content">
@@ -159,6 +137,5 @@ $classes = $conn->query("SELECT id, class_name FROM classes ORDER BY class_name 
             </form>
         </div>
     </div>
-    <script src="../js/form_validation.js"></script>
 </body>
 </html>

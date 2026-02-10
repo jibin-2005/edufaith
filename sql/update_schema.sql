@@ -20,14 +20,28 @@ CREATE TABLE IF NOT EXISTS parent_student (
 
 -- 3. Create Attendance Table
 CREATE TABLE IF NOT EXISTS attendance (
-    id INT AUTO_INCREMENT PRIMARY KEY,
+    attendance_id INT AUTO_INCREMENT PRIMARY KEY,
     student_id INT NOT NULL,
-    class_id INT NOT NULL, -- Assuming class_id relates to a classes table or is just an ID. If 'classes' table exists, we should FK it.
+    class_id INT NOT NULL,
+    teacher_id INT NOT NULL,
     date DATE NOT NULL,
-    status ENUM('Present', 'Absent') NOT NULL,
-    marked_by INT NOT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    status ENUM('Present', 'Absent', 'Late', 'Leave Approved', 'Pending Leave') NOT NULL,
+    last_updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (student_id) REFERENCES users(id) ON DELETE CASCADE,
-    FOREIGN KEY (marked_by) REFERENCES users(id),
-    UNIQUE KEY unique_attendance (student_id, date, class_id)
+    UNIQUE KEY unique_daily_attendance (student_id, date)
+);
+
+-- 4. Create Messages Table (Parent/Teacher/Admin messaging)
+CREATE TABLE IF NOT EXISTS messages (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    sender_id INT NOT NULL,
+    recipient_id INT NOT NULL,
+    subject VARCHAR(150) NOT NULL,
+    body TEXT NOT NULL,
+    is_read TINYINT(1) DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_sender (sender_id),
+    INDEX idx_recipient (recipient_id),
+    FOREIGN KEY (sender_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (recipient_id) REFERENCES users(id) ON DELETE CASCADE
 );

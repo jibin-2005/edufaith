@@ -11,14 +11,11 @@ $student_id = $_SESSION['user_id'];
 // Fetch Results for both exams
 $exam1_marks = null;
 $exam1_date = null;
-$exam1_by = null;
 $exam2_marks = null;
 $exam2_date = null;
-$exam2_by = null;
 
-$sql = "SELECT r.*, u.username as teacher_name 
+$sql = "SELECT r.* 
         FROM results r 
-        LEFT JOIN users u ON r.updated_by = u.id 
         WHERE r.student_id = ?";
 $stmt = $conn->prepare($sql);
 $stmt->bind_param("i", $student_id);
@@ -29,11 +26,9 @@ while($row = $res->fetch_assoc()) {
     if ($row['exam_type'] === 'exam_1') {
         $exam1_marks = $row['marks'];
         $exam1_date = date("d M Y", strtotime($row['updated_at']));
-        $exam1_by = $row['teacher_name'];
     } elseif ($row['exam_type'] === 'exam_2') {
         $exam2_marks = $row['marks'];
         $exam2_date = date("d M Y", strtotime($row['updated_at']));
-        $exam2_by = $row['teacher_name'];
     }
 }
 ?>
@@ -70,7 +65,7 @@ while($row = $res->fetch_assoc()) {
             <li><a href="bulletins.php"><i class="fa-solid fa-bullhorn"></i> Bulletins</a></li>
             <li><a href="events.php"><i class="fa-solid fa-calendar-days"></i> Events</a></li>
         </ul>
-        <div class="logout"><a href="../index.html"><i class="fa-solid fa-right-from-bracket"></i> Log Out</a></div>
+        <div class="logout"><a href="../includes/logout.php"><i class="fa-solid fa-right-from-bracket"></i> Log Out</a></div>
     </div>
 
     <div class="main-content">
@@ -103,7 +98,6 @@ while($row = $res->fetch_assoc()) {
                 <?php if ($exam1_marks !== null): ?>
                 <div class="meta-info">
                     <span><i class="fa-solid fa-calendar-day"></i> <?= $exam1_date ?></span>
-                    <span><i class="fa-solid fa-user-tie"></i> <?= htmlspecialchars($exam1_by ?? 'Teacher') ?></span>
                 </div>
                 <?php endif; ?>
             </div>
@@ -129,7 +123,6 @@ while($row = $res->fetch_assoc()) {
                 <?php if ($exam2_marks !== null): ?>
                 <div class="meta-info">
                     <span><i class="fa-solid fa-calendar-day"></i> <?= $exam2_date ?></span>
-                    <span><i class="fa-solid fa-user-tie"></i> <?= htmlspecialchars($exam2_by ?? 'Teacher') ?></span>
                 </div>
                 <?php endif; ?>
             </div>

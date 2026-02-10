@@ -49,7 +49,7 @@ $students = $stmt->get_result();
             <li><a href="results_exam1.php" class="active"><i class="fa-solid fa-chart-line"></i> Results - Exam 1</a></li>
             <li><a href="results_exam2.php"><i class="fa-solid fa-chart-bar"></i> Results - Exam 2</a></li>
         </ul>
-        <div class="logout"><a href="../index.html"><i class="fa-solid fa-right-from-bracket"></i> Log Out</a></div>
+        <div class="logout"><a href="../includes/logout.php"><i class="fa-solid fa-right-from-bracket"></i> Log Out</a></div>
     </div>
 
     <div class="main-content">

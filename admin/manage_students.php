@@ -8,7 +8,7 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'admin') {
 require '../includes/db.php';
 
 // Fetch students
-$sql = "SELECT u.id, u.username, u.email, c.class_name FROM users u LEFT JOIN classes c ON u.class_id = c.id WHERE u.role = 'student' ORDER BY u.username ASC";
+$sql = "SELECT u.id, u.username, u.email, c.class_name FROM users u LEFT JOIN classes c ON u.class_id = c.id WHERE u.role = 'student' ORDER BY c.class_name ASC, u.username ASC";
 $result = $conn->query($sql);
 ?>
 <!DOCTYPE html>
@@ -57,7 +57,7 @@ $result = $conn->query($sql);
             <li><a href="attendance_admin.php"><i class="fa-solid fa-calendar-check"></i> Attendance</a></li>
         </ul>
         <div class="logout">
-            <a href="../index.html"><i class="fa-solid fa-right-from-bracket"></i> Log Out</a>
+            <a href="../includes/logout.php"><i class="fa-solid fa-right-from-bracket"></i> Log Out</a>
         </div>
     </div>
 

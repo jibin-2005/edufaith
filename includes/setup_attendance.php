@@ -2,13 +2,18 @@
 require 'db.php';
 
 $sql = "CREATE TABLE IF NOT EXISTS attendance (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    user_id INT NOT NULL,
-    attendance_date DATE NOT NULL,
-    status ENUM('present', 'absent') NOT NULL,
-    marked_by INT NOT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    attendance_id INT AUTO_INCREMENT PRIMARY KEY,
+    student_id INT NOT NULL,
+    class_id INT NOT NULL,
+    teacher_id INT NOT NULL,
+    date DATE NOT NULL,
+    status ENUM('Present','Absent','Late','Leave Approved','Pending Leave') NOT NULL,
+    last_updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY unique_daily_attendance (student_id, date),
+    INDEX student_id (student_id),
+    INDEX class_id (class_id),
+    INDEX teacher_id (teacher_id),
+    CONSTRAINT fk_attendance_student_id_cascade FOREIGN KEY (student_id) REFERENCES users(id) ON DELETE CASCADE
 )";
 
 if ($conn->query($sql) === TRUE) {

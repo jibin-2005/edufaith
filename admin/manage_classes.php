@@ -24,8 +24,20 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['add_class'])) {
 // Handle Delete Class
 if (isset($_GET['delete'])) {
     $id = intval($_GET['delete']);
-    $conn->query("DELETE FROM classes WHERE id = $id");
-    $msg = "Class deleted successfully.";
+    // Unassign students from this class first
+    $stmt_unassign = $conn->prepare("UPDATE users SET class_id = NULL WHERE class_id = ?");
+    $stmt_unassign->bind_param("i", $id);
+    $stmt_unassign->execute();
+    $stmt_unassign->close();
+
+    $stmt_del = $conn->prepare("DELETE FROM classes WHERE id = ?");
+    $stmt_del->bind_param("i", $id);
+    if ($stmt_del->execute()) {
+        $msg = "Class deleted successfully.";
+    } else {
+        $error = "Error deleting class: " . $conn->error;
+    }
+    $stmt_del->close();
 }
 
 // Fetch Classes with Teacher Names
@@ -63,7 +75,7 @@ $teachers = $conn->query("SELECT id, username FROM users WHERE role = 'teacher' 
             <li><a href="manage_students.php"><i class="fa-solid fa-user-graduate"></i> Students</a></li>
             <li><a href="manage_parents.php"><i class="fa-solid fa-users"></i> Parents</a></li>
         </ul>
-        <div class="logout"><a href="../index.html"><i class="fa-solid fa-right-from-bracket"></i> Log Out</a></div>
+        <div class="logout"><a href="../includes/logout.php"><i class="fa-solid fa-right-from-bracket"></i> Log Out</a></div>
     </div>
 
     <div class="main-content">
