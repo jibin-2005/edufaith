@@ -6,6 +6,7 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'student') {
 }
 
 require '../includes/db.php';
+require_once '../includes/relationship_helper.php';
 
 $student_id = $_SESSION['user_id'];
 
@@ -59,6 +60,26 @@ if ($class_id) {
     $assign_res = $conn->query("SELECT COUNT(*) AS count FROM assignments WHERE class_id IS NULL AND due_date >= CURDATE()");
     $assignments_due = $assign_res ? (int)$assign_res->fetch_assoc()['count'] : 0;
 }
+
+// Class teacher details for logged-in student's class
+$class_teacher = null;
+if ($class_id) {
+    $qualificationSelect = rel_has_column($conn, 'users', 'qualification') ? "t.qualification," : "NULL AS qualification,";
+    $phoneSelect = rel_has_column($conn, 'users', 'phone') ? "t.phone," : "NULL AS phone,";
+    $picSelect = rel_has_column($conn, 'users', 'profile_picture') ? "t.profile_picture," : "NULL AS profile_picture,";
+    $stmt_teacher = $conn->prepare(
+        "SELECT c.class_name, t.username, t.email, $phoneSelect $qualificationSelect $picSelect c.id AS class_id
+         FROM classes c
+         LEFT JOIN users t ON t.id = c.teacher_id AND t.role = 'teacher'
+         WHERE c.id = ? LIMIT 1"
+    );
+    if ($stmt_teacher) {
+        $stmt_teacher->bind_param("i", $class_id);
+        $stmt_teacher->execute();
+        $class_teacher = $stmt_teacher->get_result()->fetch_assoc();
+        $stmt_teacher->close();
+    }
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -76,25 +97,7 @@ if ($class_id) {
 <body>
 
     <!-- SIDEBAR -->
-    <div class="sidebar">
-        <div class="logo">
-            <i class="fa-solid fa-church"></i> 
-            <span>St. Thomas Church Kanamala</span>
-        </div>
-        <ul class="menu">
-            <li><a href="dashboard_student.php" class="active"><i class="fa-solid fa-table-columns"></i> Dashboard</a></li>
-            <li><a href="attendance_student.php"><i class="fa-solid fa-clipboard-list"></i> Attendance History</a></li>
-            <li><a href="leave_student.php"><i class="fa-solid fa-envelope-open-text"></i> Leave Requests</a></li>
-            <li><a href="my_lessons.php"><i class="fa-solid fa-book-bible"></i> My Lessons</a></li>
-            <li><a href="view_results.php"><i class="fa-solid fa-chart-line"></i> Results</a></li>
-            <li><a href="bulletins.php"><i class="fa-solid fa-bullhorn"></i> Bulletins</a></li>
-            <li><a href="events.php"><i class="fa-solid fa-calendar-days"></i> Events</a></li>
-            <li><a href="profile.php"><i class="fa-solid fa-user-gear"></i> Profile</a></li>
-        </ul>
-        <div class="logout">
-            <a href="../includes/logout.php"><i class="fa-solid fa-right-from-bracket"></i> Log Out</a>
-        </div>
-    </div>
+    <?php include_once '../includes/sidebar.php'; render_sidebar($_SESSION['role'] ?? '', basename($_SERVER['PHP_SELF']), '..'); ?>
 
     <!-- MAIN CONTENT -->
     <div class="main-content">
@@ -104,16 +107,7 @@ if ($class_id) {
                 <h2>Welcome back, <?php echo htmlspecialchars($_SESSION['username']); ?></h2>
                 <p>Thy word is a lamp unto my feet. - Psalm 119:105</p>
             </div>
-            <div class="user-profile">
-                <span><?php echo htmlspecialchars($_SESSION['username']); ?></span>
-                <div class="user-img">
-                    <?php if (!empty($profile_picture) && file_exists('../' . $profile_picture)): ?>
-                        <img src="../<?php echo htmlspecialchars($profile_picture); ?>" alt="Student">
-                    <?php else: ?>
-                        <img src="https://ui-avatars.com/api/?name=<?php echo urlencode($_SESSION['username']); ?>&background=random" alt="Student">
-                    <?php endif; ?>
-                </div>
-            </div>
+            <?php include_once '../includes/header.php'; render_user_header_profile('..'); ?>
         </div>
 
         <div class="grid-container" style="margin-bottom: 20px;">
@@ -163,6 +157,57 @@ if ($class_id) {
                 </div>
             </div>
         </div>
+
+        <div class="panel" style="margin-bottom: 22px;">
+            <div class="panel-header">
+                <h3>Class Teacher</h3>
+            </div>
+            <?php if ($class_teacher && !empty($class_teacher['username'])): ?>
+                <div class="person-card" style="max-width:520px; cursor:pointer; transition:all 0.3s;" 
+                     onclick="openTeacherModal({name: '<?php echo htmlspecialchars(addslashes($class_teacher['username'])); ?>', email: '<?php echo htmlspecialchars(addslashes($class_teacher['email'] ?? '')); ?>', phone: '<?php echo htmlspecialchars(addslashes($class_teacher['phone'] ?? '')); ?>', qualification: '<?php echo htmlspecialchars(addslashes($class_teacher['qualification'] ?? '')); ?>', class: '<?php echo htmlspecialchars(addslashes($class_teacher['class_name'] ?? 'My Class')); ?>', pic: '<?php echo htmlspecialchars(rel_avatar_src($class_teacher['profile_picture'] ?? '', '..')); ?>'})" 
+                     onmouseover="this.style.transform='translateY(-5px)'; this.style.boxShadow='0 8px 16px rgba(0,0,0,0.1)';" 
+                     onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='';">
+                    <img class="person-avatar" src="<?php echo htmlspecialchars(rel_avatar_src($class_teacher['profile_picture'] ?? '', '..')); ?>" alt="Teacher">
+                    <div class="person-name"><?php echo htmlspecialchars($class_teacher['username']); ?></div>
+                    <div style="font-size:13px; color:#6b7280;"><?php echo !empty($class_teacher['email']) ? htmlspecialchars($class_teacher['email']) : '-'; ?></div>
+                    <div style="font-size:13px; color:#6b7280;"><?php echo !empty($class_teacher['phone']) ? htmlspecialchars($class_teacher['phone']) : '-'; ?></div>
+                    <?php if (!empty($class_teacher['qualification'])): ?>
+                        <div style="font-size:13px; color:#6b7280;"><?php echo htmlspecialchars($class_teacher['qualification']); ?></div>
+                    <?php endif; ?>
+                    <div class="class-pill" style="margin-top:8px;"><?php echo htmlspecialchars($class_teacher['class_name'] ?? 'My Class'); ?></div>
+                    <div style="font-size:12px; color:var(--primary); margin-top:10px; font-weight:600;"><i class="fa-solid fa-arrow-right"></i> Click for details</div>
+                </div>
+            <?php else: ?>
+                <p style="color:#6b7280;">Class teacher is not assigned yet.</p>
+            <?php endif; ?>
+        </div>
+
+        <!-- Teacher Detail Modal -->
+        <div id="teacherModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:1000; align-items:center; justify-content:center;">
+            <div style="background:white; border-radius:12px; width:90%; max-width:400px; padding:30px; box-shadow:0 10px 40px rgba(0,0,0,0.2); animation:modalSlideIn 0.3s ease;">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+                    <h2 style="margin:0; color:#333;">Teacher Details</h2>
+                    <button onclick="closeTeacherModal()" style="background:none; border:none; font-size:24px; color:#999; cursor:pointer;">&times;</button>
+                </div>
+                <div id="teacherModalContent" style="text-align:center;">
+                    <!-- Content filled by JS -->
+                </div>
+                <button onclick="closeTeacherModal()" style="margin-top:20px; width:100%; padding:10px; background:var(--primary); color:white; border:none; border-radius:6px; cursor:pointer; font-weight:600;">Close</button>
+            </div>
+        </div>
+
+        <style>
+            @keyframes modalSlideIn {
+                from {
+                    opacity: 0;
+                    transform: translateY(-30px);
+                }
+                to {
+                    opacity: 1;
+                    transform: translateY(0);
+                }
+            }
+        </style>
 
         <div class="grid-container">
             <!-- MEMORY VERSE HERO -->
@@ -320,7 +365,48 @@ if ($class_id) {
         setInterval(() => {
             window.location.reload();
         }, 60000);
+
+        // Teacher Modal Functions
+        function openTeacherModal(teacher) {
+            const modal = document.getElementById('teacherModal');
+            const content = document.getElementById('teacherModalContent');
+            
+            const qualText = teacher.qualification ? `<p style="color:#666; font-size:13px;">${teacher.qualification}</p>` : '';
+            const emailText = teacher.email ? `<p style="color:#666; font-size:13px;"><i class="fa-solid fa-envelope"></i> ${teacher.email}</p>` : '';
+            const phoneText = teacher.phone ? `<p style="color:#666; font-size:13px;"><i class="fa-solid fa-phone"></i> ${teacher.phone}</p>` : '';
+            
+            content.innerHTML = `
+                <img src="${teacher.pic}" alt="${teacher.name}" style="width:80px; height:80px; border-radius:50%; margin-bottom:15px; border:3px solid var(--primary);">
+                <h3 style="margin:15px 0 10px 0; color:#333;">${teacher.name}</h3>
+                <p style="color:var(--primary); font-weight:600; margin:0 0 15px 0;">${teacher.class}</p>
+                ${qualText}
+                ${emailText}
+                ${phoneText}
+            `;
+            
+            modal.style.display = 'flex';
+        }
+
+        function closeTeacherModal() {
+            const modal = document.getElementById('teacherModal');
+            modal.style.display = 'none';
+        }
+
+        // Close modal on Escape key
+        document.addEventListener('keydown', function(event) {
+            if (event.key === 'Escape') {
+                closeTeacherModal();
+            }
+        });
+
+        // Close modal on background click
+        document.getElementById('teacherModal').addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeTeacherModal();
+            }
+        });
     </script>
 
 </body>
 </html>
+

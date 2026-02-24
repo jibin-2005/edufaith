@@ -38,24 +38,12 @@ $students = $stmt->get_result();
     </style>
 </head>
 <body>
-    <div class="sidebar">
-        <div class="logo"><i class="fa-solid fa-church"></i> <span>St. Thomas Church</span></div>
-        <ul class="menu">
-            <li><a href="dashboard_teacher.php"><i class="fa-solid fa-table-columns"></i> Dashboard</a></li>
-            <li><a href="my_class.php"><i class="fa-solid fa-user-group"></i> My Class</a></li>
-            <li><a href="attendance_teacher.php"><i class="fa-solid fa-calendar-check"></i> Attendance</a></li>
-            <li><a href="manage_leaves.php"><i class="fa-solid fa-envelope-open-text"></i> Leave Requests</a></li>
-            <li><a href="manage_assignments.php"><i class="fa-solid fa-book"></i> Lesson Plans</a></li>
-            <li><a href="results_exam1.php" class="active"><i class="fa-solid fa-chart-line"></i> Results - Exam 1</a></li>
-            <li><a href="results_exam2.php"><i class="fa-solid fa-chart-bar"></i> Results - Exam 2</a></li>
-        </ul>
-        <div class="logout"><a href="../includes/logout.php"><i class="fa-solid fa-right-from-bracket"></i> Log Out</a></div>
-    </div>
+    <?php include_once '../includes/sidebar.php'; render_sidebar($_SESSION['role'] ?? '', basename($_SERVER['PHP_SELF']), '..'); ?>
 
     <div class="main-content">
         <div class="top-bar">
             <h2>Manage Results - Main Exam 1</h2>
-            <div class="user-profile"><span><?= htmlspecialchars($_SESSION['username']) ?></span></div>
+            <?php include_once '../includes/header.php'; render_user_header_profile('..'); ?>
         </div>
 
         <div class="exam-header">
@@ -135,3 +123,4 @@ $students = $stmt->get_result();
     </script>
 </body>
 </html>
+

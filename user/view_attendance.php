@@ -75,15 +75,7 @@ $present = 0;
     </style>
 </head>
 <body>
-    <div class="sidebar">
-        <div class="logo"><i class="fa-solid fa-church"></i> <span>St. Thomas Church</span></div>
-        <ul class="menu">
-            <li><a href="dashboard_student.php"><i class="fa-solid fa-table-columns"></i> Dashboard</a></li>
-            <li><a href="my_class.php"><i class="fa-solid fa-user-group"></i> My Class</a></li>
-            <li><a href="#" class="active"><i class="fa-solid fa-clipboard-check"></i> Attendance</a></li>
-        </ul>
-        <div class="logout"><a href="../includes/logout.php"><i class="fa-solid fa-right-from-bracket"></i> Log Out</a></div>
-    </div>
+    <?php include_once '../includes/sidebar.php'; render_sidebar($_SESSION['role'] ?? '', basename($_SERVER['PHP_SELF']), '..'); ?>
 
     <div class="main-content">
     <div class="container">
@@ -179,3 +171,4 @@ $present = 0;
     </div>
 </body>
 </html>
+

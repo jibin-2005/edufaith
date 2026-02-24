@@ -73,19 +73,12 @@ $classes = $conn->query("SELECT id, class_name FROM classes ORDER BY class_name 
     </style>
 </head>
 <body>
-    <div class="sidebar">
-        <div class="logo"><i class="fa-solid fa-church"></i> <span>St. Thomas Church</span></div>
-        <ul class="menu">
-            <li><a href="dashboard_admin.php"><i class="fa-solid fa-table-columns"></i> Dashboard</a></li>
-            <li><a href="manage_students.php" class="active"><i class="fa-solid fa-user-graduate"></i> Students</a></li>
-        </ul>
-        <div class="logout"><a href="../includes/logout.php"><i class="fa-solid fa-right-from-bracket"></i> Log Out</a></div>
-    </div>
+    <?php include_once '../includes/sidebar.php'; render_sidebar($_SESSION['role'] ?? '', basename($_SERVER['PHP_SELF']), '..'); ?>
 
     <div class="main-content">
         <div class="top-bar">
             <h2>Edit Student: <?= htmlspecialchars($user['username']) ?></h2>
-            <div class="user-profile"><span><?= htmlspecialchars($_SESSION['username']) ?></span></div>
+            <?php include_once '../includes/header.php'; render_user_header_profile('..'); ?>
         </div>
 
         <a href="manage_students.php" style="color:#555; text-decoration:none; display:inline-block; margin-bottom:20px;">
@@ -139,3 +132,4 @@ $classes = $conn->query("SELECT id, class_name FROM classes ORDER BY class_name 
     </div>
 </body>
 </html>
+

@@ -77,25 +77,7 @@ $children_count = count($children);
 <body>
 
     <!-- SIDEBAR -->
-    <div class="sidebar">
-        <div class="logo">
-            <i class="fa-solid fa-church"></i> 
-            <span>St. Thomas Church</span>
-        </div>
-        <ul class="menu">
-            <li><a href="dashboard_parent.php" class="active"><i class="fa-solid fa-table-columns"></i> Dashboard</a></li>
-            <li><a href="attendance_parent.php"><i class="fa-solid fa-calendar-check"></i> Child Attendance</a></li>
-            <li><a href="my_children.php"><i class="fa-solid fa-users"></i> My Children</a></li>
-            <li><a href="results_parent.php"><i class="fa-solid fa-chart-line"></i> Results</a></li>
-            <li><a href="bulletins.php"><i class="fa-solid fa-bullhorn"></i> Bulletins</a></li>
-            <li><a href="events.php"><i class="fa-solid fa-calendar-days"></i> Events</a></li>
-            <li><a href="messages.php"><i class="fa-solid fa-envelope"></i> Messages</a></li>
-            <li><a href="profile.php"><i class="fa-solid fa-user-gear"></i> Profile</a></li>
-        </ul>
-        <div class="logout">
-            <a href="../includes/logout.php"><i class="fa-solid fa-right-from-bracket"></i> Log Out</a>
-        </div>
-    </div>
+    <?php include_once '../includes/sidebar.php'; render_sidebar($_SESSION['role'] ?? '', basename($_SERVER['PHP_SELF']), '..'); ?>
 
     <!-- MAIN CONTENT -->
     <div class="main-content">
@@ -104,16 +86,7 @@ $children_count = count($children);
                 <h2>Welcome, <?php echo htmlspecialchars($_SESSION['username']); ?></h2>
                 <p>Parent Dashboard - Linked Accounts Overview</p>
             </div>
-            <div class="user-profile">
-                <span><?php echo htmlspecialchars($_SESSION['username']); ?></span>
-                <div class="user-img">
-                    <?php if (!empty($profile_picture) && file_exists('../' . $profile_picture)): ?>
-                        <img src="../<?php echo htmlspecialchars($profile_picture); ?>" alt="Parent">
-                    <?php else: ?>
-                        <img src="https://ui-avatars.com/api/?name=<?php echo urlencode($_SESSION['username']); ?>&background=random" alt="Parent">
-                    <?php endif; ?>
-                </div>
-            </div>
+            <?php include_once '../includes/header.php'; render_user_header_profile('..'); ?>
         </div>
 
         <div class="grid-container" style="margin-top: 20px;">
@@ -250,4 +223,5 @@ $children_count = count($children);
     </script>
     <script>\n        setInterval(() => {\n            window.location.reload();\n        }, 60000);\n    </script>\n</body>
 </html>
+
 

@@ -86,43 +86,7 @@ $bulletins = $conn->query($sql);
 <body>
 
     <!-- SIDEBAR -->
-    <div class="sidebar">
-        <div class="logo">
-            <i class="fa-solid fa-church"></i> 
-            <span>St. Thomas Church Kanamala</span>
-        </div>
-        <ul class="menu">
-            <?php if ($role === 'student'): ?>
-                <li><a href="dashboard_student.php"><i class="fa-solid fa-table-columns"></i> Dashboard</a></li>
-                <li><a href="attendance_student.php"><i class="fa-solid fa-clipboard-list"></i> Attendance History</a></li>
-                <li><a href="leave_student.php"><i class="fa-solid fa-envelope-open-text"></i> Leave Requests</a></li>
-                <li><a href="my_lessons.php"><i class="fa-solid fa-book-bible"></i> My Lessons</a></li>
-                <li><a href="view_results.php"><i class="fa-solid fa-chart-line"></i> Results</a></li>
-                <li><a href="bulletins.php" class="active"><i class="fa-solid fa-bullhorn"></i> Bulletins</a></li>
-                <li><a href="events.php"><i class="fa-solid fa-calendar-days"></i> Events</a></li>
-            <?php elseif ($role === 'teacher'): ?>
-                <li><a href="dashboard_teacher.php"><i class="fa-solid fa-table-columns"></i> Dashboard</a></li>
-                <li><a href="my_class.php"><i class="fa-solid fa-user-group"></i> My Class</a></li>
-                <li><a href="attendance_teacher.php"><i class="fa-solid fa-calendar-check"></i> Attendance</a></li>
-                <li><a href="manage_leaves.php"><i class="fa-solid fa-envelope-open-text"></i> Leave Requests</a></li>
-                <li><a href="manage_assignments.php"><i class="fa-solid fa-book"></i> Lesson Plans</a></li>
-                <li><a href="manage_results.php"><i class="fa-solid fa-chart-line"></i> Results</a></li>
-                <li><a href="bulletins.php" class="active"><i class="fa-solid fa-bullhorn"></i> Bulletins</a></li>
-                <li><a href="events.php"><i class="fa-solid fa-calendar-days"></i> Events</a></li>
-            <?php elseif ($role === 'parent'): ?>
-                <li><a href="dashboard_parent.php"><i class="fa-solid fa-table-columns"></i> Dashboard</a></li>
-                <li><a href="attendance_parent.php"><i class="fa-solid fa-calendar-check"></i> Child Attendance</a></li>
-                <li><a href="my_children.php"><i class="fa-solid fa-users"></i> My Children</a></li>
-            <li><a href="results_parent.php"><i class="fa-solid fa-chart-line"></i> Results</a></li>
-            <li><a href="messages.php"><i class="fa-solid fa-envelope"></i> Messages</a></li>
-                <li><a href="bulletins.php" class="active"><i class="fa-solid fa-bullhorn"></i> Bulletins</a></li>
-                <li><a href="events.php"><i class="fa-solid fa-calendar-days"></i> Events</a></li>
-            <?php endif; ?>
-        </ul>
-        <div class="logout">
-            <a href="../includes/logout.php"><i class="fa-solid fa-right-from-bracket"></i> Log Out</a>
-        </div>
-    </div>
+    <?php include_once '../includes/sidebar.php'; render_sidebar($_SESSION['role'] ?? '', basename($_SERVER['PHP_SELF']), '..'); ?>
 
     <!-- MAIN CONTENT -->
     <div class="main-content">
@@ -132,12 +96,7 @@ $bulletins = $conn->query($sql);
                 <h2>Bulletins & Announcements</h2>
                 <p>Stay updated with the latest news from St. Thomas Church</p>
             </div>
-            <div class="user-profile">
-                <span><?php echo htmlspecialchars($_SESSION['username']); ?></span>
-                <div class="user-img">
-                    <img src="https://ui-avatars.com/api/?name=<?php echo urlencode($_SESSION['username']); ?>&background=random" alt="User">
-                </div>
-            </div>
+            <?php include_once '../includes/header.php'; render_user_header_profile('..'); ?>
         </div>
 
         <!-- Teacher: Add Bulletin Form -->
@@ -199,6 +158,7 @@ $bulletins = $conn->query($sql);
 
 </body>
 </html>
+
 
 
 

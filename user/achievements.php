@@ -19,22 +19,12 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'student') {
     </style>
 </head>
 <body>
-    <div class="sidebar">
-        <div class="logo"><i class="fa-solid fa-church"></i> <span>St. Thomas Church</span></div>
-        <ul class="menu">
-            <li><a href="dashboard_student.php"><i class="fa-solid fa-table-columns"></i> Dashboard</a></li>
-            <li><a href="my_lessons.php"><i class="fa-solid fa-book-bible"></i> My Lessons</a></li>
-            <li><a href="view_results.php"><i class="fa-solid fa-chart-line"></i> Results</a></li>
-            <li><a href="#" class="active"><i class="fa-solid fa-star"></i> Achievements</a></li>
-            <li><a href="calendar.php"><i class="fa-solid fa-calendar-check"></i> Calendar</a></li>
-        </ul>
-        <div class="logout"><a href="../includes/logout.php"><i class="fa-solid fa-right-from-bracket"></i> Log Out</a></div>
-    </div>
+    <?php include_once '../includes/sidebar.php'; render_sidebar($_SESSION['role'] ?? '', basename($_SERVER['PHP_SELF']), '..'); ?>
 
     <div class="main-content">
         <div class="top-bar">
             <h2>My Achievements</h2>
-            <div class="user-profile"><span><?php echo htmlspecialchars($_SESSION['username']); ?></span></div>
+            <?php include_once '../includes/header.php'; render_user_header_profile('..'); ?>
         </div>
 
         <div class="badge-grid">
@@ -59,3 +49,4 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'student') {
     </div>
 </body>
 </html>
+

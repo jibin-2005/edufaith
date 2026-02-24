@@ -68,16 +68,37 @@ if (isset($_GET['delete'])) {
     $msg = "Parent deleted successfully.";
 }
 
-// Fetch Parents and their Children
-$sql = "SELECT users.id, users.username, users.email, 
-        GROUP_CONCAT(CONCAT(s.username, ' (ID:', s.id, '):', ps.id) SEPARATOR '||') as children
-        FROM users 
-        LEFT JOIN parent_student ps ON users.id = ps.parent_id
-        LEFT JOIN users s ON ps.student_id = s.id
-        WHERE users.role = 'parent' 
-        GROUP BY users.id 
-        ORDER BY users.username ASC";
-$result = $conn->query($sql);
+// Handle Search
+$search_query = isset($_GET['search']) ? trim($_GET['search']) : '';
+$search_param = '%' . $search_query . '%';
+
+// Fetch Parents and their Children with search filter
+if (!empty($search_query)) {
+    // Use prepared statement for search
+    $sql = "SELECT users.id, users.username, users.email, 
+            GROUP_CONCAT(CONCAT(s.username, ' (ID:', s.id, '):', ps.id) SEPARATOR '||') as children
+            FROM users 
+            LEFT JOIN parent_student ps ON users.id = ps.parent_id
+            LEFT JOIN users s ON ps.student_id = s.id
+            WHERE users.role = 'parent' AND users.username LIKE ? 
+            GROUP BY users.id 
+            ORDER BY users.username ASC";
+    $stmt = $conn->prepare($sql);
+    $stmt->bind_param("s", $search_param);
+    $stmt->execute();
+    $result = $stmt->get_result();
+} else {
+    // Fetch all parents
+    $sql = "SELECT users.id, users.username, users.email, 
+            GROUP_CONCAT(CONCAT(s.username, ' (ID:', s.id, '):', ps.id) SEPARATOR '||') as children
+            FROM users 
+            LEFT JOIN parent_student ps ON users.id = ps.parent_id
+            LEFT JOIN users s ON ps.student_id = s.id
+            WHERE users.role = 'parent' 
+            GROUP BY users.id 
+            ORDER BY users.username ASC";
+    $result = $conn->query($sql);
+}
 
 // Fetch Students for Dropdown
 $students = $conn->query("SELECT id, username FROM users WHERE role = 'student' ORDER BY username ASC");
@@ -103,29 +124,34 @@ while($s = $students->fetch_assoc()) {
     </style>
 </head>
 <body>
-    <div class="sidebar">
-        <div class="logo"><i class="fa-solid fa-church"></i> <span>St. Thomas Church</span></div>
-        <ul class="menu">
-            <li><a href="dashboard_admin.php"><i class="fa-solid fa-table-columns"></i> Dashboard</a></li>
-            <li><a href="manage_classes.php"><i class="fa-solid fa-chalkboard"></i> Classes</a></li>
-            <li><a href="manage_teachers.php"><i class="fa-solid fa-chalkboard-user"></i> Teachers</a></li>
-            <li><a href="manage_students.php"><i class="fa-solid fa-user-graduate"></i> Students</a></li>
-            <li><a href="manage_parents.php" class="active"><i class="fa-solid fa-users"></i> Parents</a></li>
-            <li><a href="attendance_admin.php"><i class="fa-solid fa-calendar-check"></i> Attendance</a></li>
-        </ul>
-        <div class="logout"><a href="../includes/logout.php"><i class="fa-solid fa-right-from-bracket"></i> Log Out</a></div>
-    </div>
+    <?php include_once '../includes/sidebar.php'; render_sidebar($_SESSION['role'] ?? '', basename($_SERVER['PHP_SELF']), '..'); ?>
 
     <div class="main-content">
         <div class="top-bar">
             <h2>Manage Parents</h2>
-            <div class="user-profile"><span><?php echo htmlspecialchars($_SESSION['username']); ?></span></div>
+            <?php include_once '../includes/header.php'; render_user_header_profile('..'); ?>
         </div>
         
         <?php if (isset($msg)) echo "<p style='color:green; padding:10px; background:#e8f5e9; margin-bottom:15px;'>$msg</p>"; ?>
         <?php if (isset($error)) echo "<p style='color:red; padding:10px; background:#f8d7da; margin-bottom:15px;'>$error</p>"; ?>
 
         <a href="add_user.php?role=parent" class="add-btn"><i class="fa-solid fa-plus"></i> Add New Parent</a>
+
+        <!-- Search Bar -->
+        <div style="margin-bottom: 20px; padding: 15px; background: white; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.05);">
+            <form method="GET" style="display: flex; gap: 10px; align-items: center;">
+                <div style="flex: 1; max-width: 300px;">
+                    <input type="text" name="search" placeholder="Search by name..." value="<?php echo htmlspecialchars($search_query); ?>" style="width: 100%; padding: 10px 12px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px;">
+                </div>
+                <button type="submit" style="padding: 10px 20px; background: var(--primary); color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600;"><i class="fa-solid fa-magnifying-glass"></i> Search</button>
+                <?php if (!empty($search_query)): ?>
+                    <a href="manage_parents.php" style="padding: 10px 20px; background: #6c757d; color: white; border: none; border-radius: 6px; cursor: pointer; text-decoration: none; font-weight: 600;"><i class="fa-solid fa-times"></i> Clear</a>
+                <?php endif; ?>
+            </form>
+            <?php if (!empty($search_query)): ?>
+                <p style="margin: 10px 0 0 0; font-size: 13px; color: #666;">Searching for: <strong><?php echo htmlspecialchars($search_query); ?></strong></p>
+            <?php endif; ?>
+        </div>
 
         <div class="table-container">
             <table>
@@ -139,7 +165,7 @@ while($s = $students->fetch_assoc()) {
                     </tr>
                 </thead>
                 <tbody>
-                    <?php if ($result->num_rows > 0): ?>
+                    <?php if ($result && $result->num_rows > 0): ?>
                         <?php while($row = $result->fetch_assoc()): ?>
                             <tr>
                                 <td>#<?php echo $row['id']; ?></td>
@@ -173,7 +199,15 @@ while($s = $students->fetch_assoc()) {
                             </tr>
                         <?php endwhile; ?>
                     <?php else: ?>
-                        <tr><td colspan="5">No parents found.</td></tr>
+                        <tr>
+                            <td colspan="5" style="text-align: center; padding: 20px; color: #888;">
+                                <?php if (!empty($search_query)): ?>
+                                    No parents found matching "<?php echo htmlspecialchars($search_query); ?>"
+                                <?php else: ?>
+                                    No parents found.
+                                <?php endif; ?>
+                            </td>
+                        </tr>
                     <?php endif; ?>
                 </tbody>
             </table>
@@ -305,3 +339,4 @@ while($s = $students->fetch_assoc()) {
     </script>
 </body>
 </html>
+

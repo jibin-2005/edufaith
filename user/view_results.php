@@ -54,24 +54,12 @@ while($row = $res->fetch_assoc()) {
     </style>
 </head>
 <body>
-    <div class="sidebar">
-        <div class="logo"><i class="fa-solid fa-church"></i> <span>St. Thomas Church</span></div>
-        <ul class="menu">
-            <li><a href="dashboard_student.php"><i class="fa-solid fa-table-columns"></i> Dashboard</a></li>
-            <li><a href="attendance_student.php"><i class="fa-solid fa-calendar-check"></i> Attendance</a></li>
-            <li><a href="leave_student.php"><i class="fa-solid fa-envelope-open-text"></i> Leave Requests</a></li>
-            <li><a href="my_lessons.php"><i class="fa-solid fa-book-bible"></i> My Lessons</a></li>
-            <li><a href="view_results.php" class="active"><i class="fa-solid fa-chart-line"></i> Results</a></li>
-            <li><a href="bulletins.php"><i class="fa-solid fa-bullhorn"></i> Bulletins</a></li>
-            <li><a href="events.php"><i class="fa-solid fa-calendar-days"></i> Events</a></li>
-        </ul>
-        <div class="logout"><a href="../includes/logout.php"><i class="fa-solid fa-right-from-bracket"></i> Log Out</a></div>
-    </div>
+    <?php include_once '../includes/sidebar.php'; render_sidebar($_SESSION['role'] ?? '', basename($_SERVER['PHP_SELF']), '..'); ?>
 
     <div class="main-content">
         <div class="top-bar">
             <h2>My Exam Results</h2>
-            <div class="user-profile"><span><?php echo htmlspecialchars($_SESSION['username']); ?></span></div>
+            <?php include_once '../includes/header.php'; render_user_header_profile('..'); ?>
         </div>
 
         <p style="color: #666; margin-bottom: 30px;">View your performance in the main academic examinations.</p>
@@ -135,3 +123,4 @@ while($row = $res->fetch_assoc()) {
     </div>
 </body>
 </html>
+

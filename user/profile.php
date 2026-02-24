@@ -69,6 +69,8 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['upload_picture'])) {
                     if (!empty($old_data['profile_picture']) && file_exists('../' . $old_data['profile_picture'])) {
                         unlink('../' . $old_data['profile_picture']);
                     }
+                    $_SESSION['profile_image'] = $db_path;
+                    $_SESSION['profile_picture'] = $db_path;
                     $message = "Profile picture updated successfully!";
                 } else {
                     $error = "Error updating database: " . $conn->error;
@@ -103,6 +105,8 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['remove_picture'])) {
             if (file_exists('../' . $old_data['profile_picture'])) {
                 unlink('../' . $old_data['profile_picture']);
             }
+            $_SESSION['profile_image'] = null;
+            $_SESSION['profile_picture'] = null;
             $message = "Profile picture removed successfully!";
         } else {
             $error = "Error removing profile picture: " . $conn->error;
@@ -168,6 +172,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['update_profile'])) {
         
         if ($stmt->execute()) {
             $_SESSION['username'] = $fullname;
+            $_SESSION['user_name'] = $fullname;
             $message = "Profile updated successfully!";
         } else {
             $error = "Error updating profile: " . $conn->error;
@@ -444,19 +449,7 @@ elseif ($role === 'parent') $dashboard_link = "dashboard_parent.php";
 </head>
 <body>
     <!-- SIDEBAR -->
-    <div class="sidebar">
-        <div class="logo">
-            <i class="fa-solid fa-church"></i> 
-            <span>St. Thomas Church</span>
-        </div>
-        <ul class="menu">
-            <li><a href="<?php echo $dashboard_link; ?>"><i class="fa-solid fa-table-columns"></i> Dashboard</a></li>
-            <li><a href="profile.php" class="active"><i class="fa-solid fa-user-gear"></i> My Profile</a></li>
-        </ul>
-        <div class="logout">
-            <a href="../includes/logout.php"><i class="fa-solid fa-right-from-bracket"></i> Log Out</a>
-        </div>
-    </div>
+    <?php include_once '../includes/sidebar.php'; render_sidebar($_SESSION['role'] ?? '', basename($_SERVER['PHP_SELF']), '..'); ?>
 
     <!-- MAIN CONTENT -->
     <div class="main-content">
@@ -465,16 +458,7 @@ elseif ($role === 'parent') $dashboard_link = "dashboard_parent.php";
                 <h2>Account Settings</h2>
                 <p>Manage your personal information and preferences.</p>
             </div>
-            <div class="user-profile">
-                <span><?php echo htmlspecialchars($user_data['username']); ?></span>
-                <div class="user-img">
-                    <?php if (!empty($user_data['profile_picture']) && file_exists('../' . $user_data['profile_picture'])): ?>
-                        <img src="../<?php echo htmlspecialchars($user_data['profile_picture']); ?>" alt="User">
-                    <?php else: ?>
-                        <img src="https://ui-avatars.com/api/?name=<?php echo urlencode($user_data['username']); ?>&background=random" alt="User">
-                    <?php endif; ?>
-                </div>
-            </div>
+            <?php include_once '../includes/header.php'; render_user_header_profile('..'); ?>
         </div>
 
         <div class="profile-container">
@@ -715,3 +699,4 @@ elseif ($role === 'parent') $dashboard_link = "dashboard_parent.php";
     </script>
 </body>
 </html>
+

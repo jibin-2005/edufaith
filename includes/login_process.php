@@ -8,7 +8,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $role = isset($_POST['role']) ? $_POST['role'] : null;
 
     // Prepare statement to prevent SQL Injection
-    $stmt = $conn->prepare("SELECT id, username, password, role, status FROM users WHERE email = ?");
+    $stmt = $conn->prepare("SELECT id, username, password, role, status, profile_picture FROM users WHERE email = ?");
     $stmt->bind_param("s", $email);
     $stmt->execute();
     $result = $stmt->get_result();
@@ -29,6 +29,10 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             $_SESSION['user_id'] = $user['id'];
             $_SESSION['username'] = $user['username'];
             $_SESSION['role'] = $db_role;
+            $_SESSION['user_name'] = $user['username'];
+            $_SESSION['user_role'] = $db_role;
+            $_SESSION['profile_image'] = $user['profile_picture'] ?? null;
+            $_SESSION['profile_picture'] = $user['profile_picture'] ?? null;
 
             // Redirect based on role
             switch ($db_role) {

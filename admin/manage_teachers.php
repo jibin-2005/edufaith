@@ -30,14 +30,31 @@ if (isset($_GET['delete_id'])) {
     }
 }
 
-// Fetch teachers
-// Fetch teachers with their assigned class
-$sql = "SELECT u.id, u.username, u.email, c.class_name 
-        FROM users u 
-        LEFT JOIN classes c ON c.teacher_id = u.id 
-        WHERE u.role = 'teacher' 
-        ORDER BY u.username ASC";
-$result = $conn->query($sql);
+// Handle Search
+$search_query = isset($_GET['search']) ? trim($_GET['search']) : '';
+$search_param = '%' . $search_query . '%';
+
+// Fetch teachers with search filter
+if (!empty($search_query)) {
+    // Use prepared statement for search
+    $sql = "SELECT u.id, u.username, u.email, c.class_name 
+            FROM users u 
+            LEFT JOIN classes c ON c.teacher_id = u.id 
+            WHERE u.role = 'teacher' AND u.username LIKE ? 
+            ORDER BY u.username ASC";
+    $stmt = $conn->prepare($sql);
+    $stmt->bind_param("s", $search_param);
+    $stmt->execute();
+    $result = $stmt->get_result();
+} else {
+    // Fetch all teachers
+    $sql = "SELECT u.id, u.username, u.email, c.class_name 
+            FROM users u 
+            LEFT JOIN classes c ON c.teacher_id = u.id 
+            WHERE u.role = 'teacher' 
+            ORDER BY u.username ASC";
+    $result = $conn->query($sql);
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -69,21 +86,7 @@ $result = $conn->query($sql);
     </style>
 </head>
 <body>
-    <div class="sidebar">
-        <div class="logo">
-            <i class="fa-solid fa-church"></i> 
-            <span>St. Thomas Church Kanamala</span>
-        </div>
-        <ul class="menu">
-            <li><a href="dashboard_admin.php"><i class="fa-solid fa-table-columns"></i> Dashboard</a></li>
-            <li><a href="manage_teachers.php" class="active"><i class="fa-solid fa-chalkboard-user"></i> Teachers</a></li>
-            <li><a href="manage_students.php"><i class="fa-solid fa-user-graduate"></i> Students</a></li>
-            <li><a href="#"><i class="fa-solid fa-users"></i> Parents</a></li>
-        </ul>
-        <div class="logout">
-            <a href="../includes/logout.php"><i class="fa-solid fa-right-from-bracket"></i> Log Out</a>
-        </div>
-    </div>
+    <?php include_once '../includes/sidebar.php'; render_sidebar($_SESSION['role'] ?? '', basename($_SERVER['PHP_SELF']), '..'); ?>
 
     <div class="main-content">
         <div class="top-bar">
@@ -105,6 +108,22 @@ $result = $conn->query($sql);
         <?php endif; ?>
 
         <div class="panel">
+            <!-- Search Bar -->
+            <div style="margin-bottom: 20px; padding-bottom: 15px; border-bottom: 1px solid #eee;">
+                <form method="GET" style="display: flex; gap: 10px; align-items: center;">
+                    <div style="flex: 1; max-width: 300px;">
+                        <input type="text" name="search" placeholder="Search by name..." value="<?php echo htmlspecialchars($search_query); ?>" style="width: 100%; padding: 10px 12px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px;">
+                    </div>
+                    <button type="submit" style="padding: 10px 20px; background: var(--primary); color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600;"><i class="fa-solid fa-magnifying-glass"></i> Search</button>
+                    <?php if (!empty($search_query)): ?>
+                        <a href="manage_teachers.php" style="padding: 10px 20px; background: #6c757d; color: white; border: none; border-radius: 6px; cursor: pointer; text-decoration: none; font-weight: 600;"><i class="fa-solid fa-times"></i> Clear</a>
+                    <?php endif; ?>
+                </form>
+                <?php if (!empty($search_query)): ?>
+                    <p style="margin: 10px 0 0 0; font-size: 13px; color: #666;">Searching for: <strong><?php echo htmlspecialchars($search_query); ?></strong></p>
+                <?php endif; ?>
+            </div>
+
             <table>
                 <thead>
                     <tr>
@@ -117,7 +136,7 @@ $result = $conn->query($sql);
                     </tr>
                 </thead>
                 <tbody>
-                    <?php if ($result->num_rows > 0): ?>
+                    <?php if ($result && $result->num_rows > 0): ?>
                         <?php while($row = $result->fetch_assoc()): 
                             $status_info = $conn->query("SELECT status FROM users WHERE id = " . $row['id'])->fetch_assoc();
                             $status = $status_info['status'] ? $status_info['status'] : 'active';
@@ -148,7 +167,13 @@ $result = $conn->query($sql);
                         <?php endwhile; ?>
                     <?php else: ?>
                         <tr>
-                            <td colspan="6" style="text-align: center; padding: 20px; color: #888;">No teachers found.</td>
+                            <td colspan="6" style="text-align: center; padding: 20px; color: #888;">
+                                <?php if (!empty($search_query)): ?>
+                                    No teachers found matching "<?php echo htmlspecialchars($search_query); ?>"
+                                <?php else: ?>
+                                    No teachers found.
+                                <?php endif; ?>
+                            </td>
                         </tr>
                     <?php endif; ?>
                 </tbody>
@@ -282,3 +307,4 @@ $result = $conn->query($sql);
 </body>
 </html>
 <?php $conn->close(); ?>
+

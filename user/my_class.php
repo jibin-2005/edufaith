@@ -4,50 +4,83 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'teacher') {
     header("Location: ../login.html");
     exit;
 }
-require '../includes/db.php';
 
-// Handle Student Deletion
-if (isset($_GET['delete'])) {
-    $id = intval($_GET['delete']);
-    // Security: Ensure the user being deleted is actually a student
-    $check = $conn->query("SELECT role FROM users WHERE id = $id");
-    if ($check->num_rows > 0 && $check->fetch_assoc()['role'] === 'student') {
-        $conn->query("DELETE FROM users WHERE id = $id");
-        $msg = "Student removed successfully.";
-    } else {
-        $error = "Unable to delete: User not found or not a student.";
+require '../includes/db.php';
+require_once '../includes/relationship_helper.php';
+
+$teacher_id = (int)$_SESSION['user_id'];
+$view_student_id = isset($_GET['view_student']) ? (int)$_GET['view_student'] : 0;
+
+$class_stmt = $conn->prepare("SELECT id, class_name FROM classes WHERE teacher_id = ? ORDER BY class_name ASC");
+$class_stmt->bind_param("i", $teacher_id);
+$class_stmt->execute();
+$class_res = $class_stmt->get_result();
+$assigned_classes = [];
+while ($row = $class_res->fetch_assoc()) {
+    $assigned_classes[] = $row;
+}
+$class_stmt->close();
+
+$students = [];
+$student_detail = null;
+$error = '';
+
+if (empty($assigned_classes)) {
+    $error = "You are not assigned to any class. Please contact admin.";
+} else {
+    $class_ids = array_map(function ($r) { return (int)$r['id']; }, $assigned_classes);
+    $in = implode(',', $class_ids);
+
+    $optional = rel_build_student_select_fields($conn, 's');
+    $selectCols = array_merge([
+        "s.id",
+        "s.username",
+        "s.email",
+        "c.class_name"
+    ], $optional);
+
+    $hasParentLink = rel_has_table($conn, 'parent_student');
+    $guardianPhoneExpr = rel_has_column($conn, 'users', 'phone') ? "MIN(p.phone) AS guardian_phone" : "NULL AS guardian_phone";
+    $guardianNameExpr = $hasParentLink ? "MIN(p.username) AS guardian_name" : "NULL AS guardian_name";
+    $guardianJoin = $hasParentLink
+        ? "LEFT JOIN parent_student ps ON ps.student_id = s.id
+           LEFT JOIN users p ON p.id = ps.parent_id AND p.role = 'parent'"
+        : "";
+    $sql = "SELECT " . implode(", ", $selectCols) . ",
+                   $guardianNameExpr,
+                   $guardianPhoneExpr
+            FROM users s
+            JOIN classes c ON c.id = s.class_id
+            $guardianJoin
+            WHERE s.role = 'student' AND s.class_id IN ($in)
+            GROUP BY s.id, s.username, s.email, c.class_name" . (in_array("s.profile_picture", $optional, true) ? ", s.profile_picture" : "") .
+            (in_array("s.dob", $optional, true) ? ", s.dob" : "") .
+            (in_array("s.gender", $optional, true) ? ", s.gender" : "") .
+            (in_array("s.phone", $optional, true) ? ", s.phone" : "") .
+            (in_array("s.address", $optional, true) ? ", s.address" : "") .
+            (in_array("s.admission_number", $optional, true) ? ", s.admission_number" : "") .
+            (in_array("s.academic_status", $optional, true) ? ", s.academic_status" : "") .
+            " ORDER BY c.class_name ASC, s.username ASC";
+
+    $res = $conn->query($sql);
+    if ($res) {
+        while ($row = $res->fetch_assoc()) {
+            $students[] = $row;
+        }
+    }
+
+    if ($view_student_id > 0) {
+        foreach ($students as $s) {
+            if ((int)$s['id'] === $view_student_id) {
+                $student_detail = $s;
+                break;
+            }
+        }
+        if (!$student_detail) {
+            $error = "Unauthorized student access attempt blocked.";
+        }
     }
 }
-
-// Get Teacher's assigned classes
-$teacher_id = $_SESSION['user_id'];
-$class_query = $conn->query("SELECT id, class_name FROM classes WHERE teacher_id = $teacher_id");
-$assigned_classes = [];
-while($c = $class_query->fetch_assoc()) {
-    $assigned_classes[] = $c['id'];
-}
-
-// Build Query based on assignments
-if (!empty($assigned_classes)) {
-    $class_ids = implode(',', $assigned_classes);
-    $sql = "SELECT * FROM users WHERE role = 'student' AND (class_id IN ($class_ids) OR class_id IS NULL) ORDER BY username ASC";
-    // NOTE: For stricter filtering, remove "OR class_id IS NULL" to hide unassigned students.
-    // However, showing unassigned students helps teachers adopt them into the class if needed.
-    // Let's stick to STRICT requirements: Only show assigned class students.
-    $sql = "SELECT * FROM users WHERE role = 'student' AND class_id IN ($class_ids) ORDER BY username ASC";
-    $msg_info = "Showing students from your assigned classes.";
-} else {
-    // If no class assigned, show empty or all?
-    // Requirement says "Role based". If no class assigned, teacher shouldn't see random students.
-    $sql = "SELECT * FROM users WHERE 1=0"; // Show nothing
-    $error = "You are not assigned to any class. Please contact Admin.";
-}
-
-// Special Case: If teacher added a student recently via 'add_student.php' (which sets class_id=NULL unless updated), 
-// they might disappear. We should actually allow teachers to see "Unassigned" students or auto-assign them.
-// Refinement: For this MVP, let's keep it simple. If teacher creates a student, we should ideally assign the class.
-// But for now, we follow strict filtering.
-$result = $conn->query($sql);
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -57,76 +90,61 @@ $result = $conn->query($sql);
     <link rel="stylesheet" href="../css/dashboard.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-         .table-container { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
-        table { width: 100%; border-collapse: collapse; }
-        th, td { padding: 12px; text-align: left; border-bottom: 1px solid #eee; }
+        .students-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(250px, 1fr)); gap:16px; }
+        .student-card { text-decoration:none; color:inherit; }
+        .student-meta { font-size:12px; color:#6b7280; margin-top:6px; }
+        .class-pill { display:inline-block; margin-top:8px; padding:4px 10px; border-radius:999px; font-size:12px; background:#eaf3ff; color:#165fb6; }
+        .detail-panel { background:#fff; border:1px solid #e5edf9; border-radius:12px; padding:18px; margin-bottom:18px; }
+        .detail-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:12px; margin-top:14px; }
+        .detail-item { background:#f8fbff; border:1px solid #e7eef9; border-radius:10px; padding:10px 12px; }
+        .detail-item label { display:block; font-size:11px; color:#6b7280; text-transform:uppercase; font-weight:700; margin-bottom:4px; }
+        .profile-lg { width:78px; height:78px; border-radius:50%; object-fit:cover; border:3px solid #eef3fb; }
     </style>
 </head>
 <body>
-    <div class="sidebar">
-        <div class="logo"><i class="fa-solid fa-church"></i> <span>St. Thomas Church</span></div>
-        <ul class="menu">
-            <li><a href="dashboard_teacher.php"><i class="fa-solid fa-table-columns"></i> Dashboard</a></li>
-            <li><a href="my_class.php" class="active"><i class="fa-solid fa-user-group"></i> My Class</a></li>
-            <li><a href="attendance_teacher.php"><i class="fa-solid fa-calendar-check"></i> Attendance</a></li>
-            <li><a href="manage_leaves.php"><i class="fa-solid fa-envelope-open-text"></i> Leave Requests</a></li>
-            <li><a href="manage_assignments.php"><i class="fa-solid fa-book"></i> Lesson Plans</a></li>
-            <li><a href="manage_results.php"><i class="fa-solid fa-chart-line"></i> Results</a></li>
-            <li><a href="bulletins.php"><i class="fa-solid fa-bullhorn"></i> Bulletins</a></li>
-            <li><a href="events.php"><i class="fa-solid fa-calendar-days"></i> Events</a></li>
-        </ul>
-        <div class="logout"><a href="../includes/logout.php"><i class="fa-solid fa-right-from-bracket"></i> Log Out</a></div>
-    </div>
+    <?php include_once '../includes/sidebar.php'; render_sidebar($_SESSION['role'] ?? '', basename($_SERVER['PHP_SELF']), '..'); ?>
 
     <div class="main-content">
         <div class="top-bar">
             <h2>My Class</h2>
-            <div class="user-profile"><span><?php echo htmlspecialchars($_SESSION['username']); ?></span></div>
+            <?php include_once '../includes/header.php'; render_user_header_profile('..'); ?>
         </div>
 
-        <?php if (isset($msg)) echo "<p style='color:green; background:#e8f5e9; padding:10px; border-radius:4px; margin-bottom:20px;'>$msg</p>"; ?>
-        <?php if (isset($error)) echo "<p style='color:red; background:#f8d7da; padding:10px; border-radius:4px; margin-bottom:20px;'>$error</p>"; ?>
+        <?php if ($error !== ''): ?>
+            <div class="alert error-msg"><?php echo htmlspecialchars($error); ?></div>
+        <?php endif; ?>
 
-        <div style="margin-bottom: 20px;">
-            <a href="add_student.php" style="padding: 10px 20px; background: var(--primary); color: white; text-decoration: none; border-radius: 6px; font-weight: 500;">
-                <i class="fa-solid fa-plus"></i> Add New Student
-            </a>
-        </div>
+        <?php if ($student_detail): ?>
+            <div class="detail-panel">
+                <div style="display:flex; gap:14px; align-items:center;">
+                    <img class="profile-lg" src="<?php echo htmlspecialchars(rel_avatar_src($student_detail['profile_picture'] ?? '', '..')); ?>" alt="Student">
+                    <div>
+                        <h3 style="margin:0;"><?php echo htmlspecialchars($student_detail['username']); ?></h3>
+                        <span class="class-pill"><?php echo htmlspecialchars($student_detail['class_name']); ?></span>
+                    </div>
+                </div>
+                <div class="detail-grid">
+                    <div class="detail-item"><label>Admission Number</label><div><?php echo htmlspecialchars($student_detail['admission_number'] ?? ('ADM-' . $student_detail['id'])); ?></div></div>
+                    <div class="detail-item"><label>Date of Birth</label><div><?php echo !empty($student_detail['dob']) ? htmlspecialchars($student_detail['dob']) : '-'; ?></div></div>
+                    <div class="detail-item"><label>Gender</label><div><?php echo !empty($student_detail['gender']) ? htmlspecialchars($student_detail['gender']) : '-'; ?></div></div>
+                    <div class="detail-item"><label>Parent/Guardian</label><div><?php echo !empty($student_detail['guardian_name']) ? htmlspecialchars($student_detail['guardian_name']) : '-'; ?></div></div>
+                    <div class="detail-item"><label>Contact Number</label><div><?php echo !empty($student_detail['guardian_phone']) ? htmlspecialchars($student_detail['guardian_phone']) : (!empty($student_detail['phone']) ? htmlspecialchars($student_detail['phone']) : '-'); ?></div></div>
+                    <div class="detail-item"><label>Address</label><div><?php echo !empty($student_detail['address']) ? nl2br(htmlspecialchars($student_detail['address'])) : '-'; ?></div></div>
+                    <div class="detail-item"><label>Email</label><div><?php echo !empty($student_detail['email']) ? htmlspecialchars($student_detail['email']) : '-'; ?></div></div>
+                    <div class="detail-item"><label>Academic Status</label><div><?php echo !empty($student_detail['academic_status']) ? htmlspecialchars($student_detail['academic_status']) : 'Active'; ?></div></div>
+                </div>
+            </div>
+        <?php endif; ?>
 
-        <div class="table-container">
-            <table>
-                <thead>
-                    <tr>
-                        <th>ID</th>
-                        <th>Name</th>
-                        <th>Email</th>
-                        <th>Contact</th>
-                        <th>Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <?php while($row = $result->fetch_assoc()): ?>
-                    <tr>
-                        <td>#<?php echo $row['id']; ?></td>
-                        <td>
-                            <img src="https://ui-avatars.com/api/?name=<?php echo urlencode($row['username']); ?>&background=random" style="width:30px; border-radius:50%; vertical-align:middle; margin-right:10px;">
-                            <?php echo htmlspecialchars($row['username']); ?>
-                        </td>
-                        <td><a href="mailto:<?php echo htmlspecialchars($row['email']); ?>"><?php echo htmlspecialchars($row['email']); ?></a></td>
-                        <td>
-                            <div style="display: flex; gap: 15px; align-items: center;">
-                                <a href="edit_student.php?id=<?php echo $row['id']; ?>" title="Edit" style="color:#3498db; font-size: 16px;">
-                                    <i class="fa-solid fa-pen-to-square"></i>
-                                </a>
-                                <a href="?delete=<?php echo $row['id']; ?>" title="Delete" onclick="return confirm('Are you sure you want to remove this student? This cannot be undone.');" style="color:#e74c3c; font-size: 16px;">
-                                    <i class="fa-solid fa-trash"></i>
-                                </a>
-                            </div>
-                        </td>
-                    </tr>
-                    <?php endwhile; ?>
-                </tbody>
-            </table>
+        <div class="students-grid">
+            <?php foreach ($students as $student): ?>
+                <a class="person-card student-card" href="?view_student=<?php echo (int)$student['id']; ?>">
+                    <img class="person-avatar" src="<?php echo htmlspecialchars(rel_avatar_src($student['profile_picture'] ?? '', '..')); ?>" alt="Student">
+                    <div class="person-name"><?php echo htmlspecialchars($student['username']); ?></div>
+                    <div class="student-meta">Admission: <?php echo htmlspecialchars($student['admission_number'] ?? ('ADM-' . $student['id'])); ?></div>
+                    <span class="class-pill"><?php echo htmlspecialchars($student['class_name']); ?></span>
+                </a>
+            <?php endforeach; ?>
         </div>
     </div>
 </body>

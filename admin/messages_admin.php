@@ -101,26 +101,12 @@ $mark->close();
     </style>
 </head>
 <body>
-    <div class="sidebar">
-        <div class="logo"><i class="fa-solid fa-church"></i> <span>St. Thomas Church</span></div>
-        <ul class="menu">
-            <li><a href="dashboard_admin.php"><i class="fa-solid fa-table-columns"></i> Dashboard</a></li>
-            <li><a href="manage_classes.php"><i class="fa-solid fa-chalkboard"></i> Classes</a></li>
-            <li><a href="manage_teachers.php"><i class="fa-solid fa-chalkboard-user"></i> Teachers</a></li>
-            <li><a href="manage_students.php"><i class="fa-solid fa-user-graduate"></i> Students</a></li>
-            <li><a href="manage_parents.php"><i class="fa-solid fa-users"></i> Parents</a></li>
-            <li><a href="manage_events.php"><i class="fa-solid fa-calendar-days"></i> Events</a></li>
-            <li><a href="manage_bulletins.php"><i class="fa-solid fa-bullhorn"></i> Bulletins</a></li>
-            <li><a href="attendance_admin.php"><i class="fa-solid fa-calendar-check"></i> Attendance</a></li>
-            <li><a href="messages_admin.php" class="active"><i class="fa-solid fa-envelope"></i> Messages</a></li>
-        </ul>
-        <div class="logout"><a href="../includes/logout.php"><i class="fa-solid fa-right-from-bracket"></i> Log Out</a></div>
-    </div>
+    <?php include_once '../includes/sidebar.php'; render_sidebar($_SESSION['role'] ?? '', basename($_SERVER['PHP_SELF']), '..'); ?>
 
     <div class="main-content">
         <div class="top-bar">
             <h2>Parent Messages</h2>
-            <div class="user-profile"><span>Administrator</span></div>
+            <?php include_once '../includes/header.php'; render_user_header_profile('..'); ?>
         </div>
 
         <?php if ($send_success): ?>
@@ -186,3 +172,4 @@ $mark->close();
     </div>
 </body>
 </html>
+

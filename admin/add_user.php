@@ -114,21 +114,7 @@ if ($classes_result) {
     </style>
 </head>
 <body>
-    <div class="sidebar">
-        <div class="logo">
-            <i class="fa-solid fa-church"></i> 
-            <span>St. Thomas Church Kanamala</span>
-        </div>
-        <ul class="menu">
-            <li><a href="dashboard_admin.php"><i class="fa-solid fa-table-columns"></i> Dashboard</a></li>
-            <li><a href="manage_teachers.php"><i class="fa-solid fa-chalkboard-user"></i> Teachers</a></li>
-            <li><a href="manage_students.php"><i class="fa-solid fa-user-graduate"></i> Students</a></li>
-            <li><a href="manage_parents.php"><i class="fa-solid fa-users"></i> Parents</a></li>
-        </ul>
-        <div class="logout">
-            <a href="../includes/logout.php"><i class="fa-solid fa-right-from-bracket"></i> Log Out</a>
-        </div>
-    </div>
+    <?php include_once '../includes/sidebar.php'; render_sidebar($_SESSION['role'] ?? '', basename($_SERVER['PHP_SELF']), '..'); ?>
 
     <div class="main-content">
         <div class="top-bar">
@@ -279,3 +265,4 @@ if ($classes_result) {
     <script type="module" src="../js/add_user_sync.js"></script>
 </body>
 </html>
+

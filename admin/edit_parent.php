@@ -66,14 +66,7 @@ $all_students = $conn->query("SELECT id, username FROM users WHERE role = 'stude
     </style>
 </head>
 <body>
-    <div class="sidebar">
-        <div class="logo"><i class="fa-solid fa-church"></i> <span>St. Thomas Church</span></div>
-        <ul class="menu">
-            <li><a href="dashboard_admin.php"><i class="fa-solid fa-table-columns"></i> Dashboard</a></li>
-            <li><a href="manage_parents.php" class="active"><i class="fa-solid fa-users"></i> Parents</a></li>
-        </ul>
-        <div class="logout"><a href="../includes/logout.php"><i class="fa-solid fa-right-from-bracket"></i> Log Out</a></div>
-    </div>
+    <?php include_once '../includes/sidebar.php'; render_sidebar($_SESSION['role'] ?? '', basename($_SERVER['PHP_SELF']), '..'); ?>
 
     <div class="main-content">
         <div class="top-bar">
@@ -198,3 +191,4 @@ $all_students = $conn->query("SELECT id, username FROM users WHERE role = 'stude
     </script>
 </body>
 </html>
+

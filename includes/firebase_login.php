@@ -24,7 +24,7 @@ $firebase_uid = isset($input['uid']) ? $input['uid'] : null;
 // --- BRIDGE LOGIC ---
 
 // 1. Check if user exists by Firebase UID
-$stmt = $conn->prepare("SELECT id, username, role, status, email FROM users WHERE firebase_uid = ?");
+$stmt = $conn->prepare("SELECT id, username, role, status, email, profile_picture FROM users WHERE firebase_uid = ?");
 $stmt->bind_param("s", $firebase_uid);
 $stmt->execute();
 $result = $stmt->get_result();
@@ -35,7 +35,7 @@ if ($result->num_rows === 1) {
 } else {
     // 2. Fallback: Check by Email (Migration or first sync)
     $stmt->close(); // Close previous
-    $stmt = $conn->prepare("SELECT id, username, role, status, email FROM users WHERE email = ?");
+    $stmt = $conn->prepare("SELECT id, username, role, status, email, profile_picture FROM users WHERE email = ?");
     $stmt->bind_param("s", $email);
     $stmt->execute();
     $result = $stmt->get_result();
@@ -67,6 +67,10 @@ $role = strtolower($user['role']);
 $_SESSION['user_id'] = $user['id'];
 $_SESSION['username'] = $user['username'];
 $_SESSION['role'] = $role;
+$_SESSION['user_name'] = $user['username'];
+$_SESSION['user_role'] = $role;
+$_SESSION['profile_image'] = $user['profile_picture'] ?? null;
+$_SESSION['profile_picture'] = $user['profile_picture'] ?? null;
 $_SESSION['auth_provider'] = 'firebase';
 
 // Determine Redirect
