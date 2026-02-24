@@ -25,6 +25,10 @@ $students = [];
 $student_detail = null;
 $error = '';
 
+// Handle Search
+$search_query = isset($_GET['search']) ? trim($_GET['search']) : '';
+$search_param = '%' . $search_query . '%';
+
 if (empty($assigned_classes)) {
     $error = "You are not assigned to any class. Please contact admin.";
 } else {
@@ -52,8 +56,14 @@ if (empty($assigned_classes)) {
             FROM users s
             JOIN classes c ON c.id = s.class_id
             $guardianJoin
-            WHERE s.role = 'student' AND s.class_id IN ($in)
-            GROUP BY s.id, s.username, s.email, c.class_name" . (in_array("s.profile_picture", $optional, true) ? ", s.profile_picture" : "") .
+            WHERE s.role = 'student' AND s.class_id IN ($in)";
+    
+    // Add search filter if query is not empty
+    if (!empty($search_query)) {
+        $sql .= " AND s.username LIKE ?";
+    }
+    
+    $sql .= " GROUP BY s.id, s.username, s.email, c.class_name" . (in_array("s.profile_picture", $optional, true) ? ", s.profile_picture" : "") .
             (in_array("s.dob", $optional, true) ? ", s.dob" : "") .
             (in_array("s.gender", $optional, true) ? ", s.gender" : "") .
             (in_array("s.phone", $optional, true) ? ", s.phone" : "") .
@@ -62,7 +72,15 @@ if (empty($assigned_classes)) {
             (in_array("s.academic_status", $optional, true) ? ", s.academic_status" : "") .
             " ORDER BY c.class_name ASC, s.username ASC";
 
-    $res = $conn->query($sql);
+    // Use prepared statement if search is active
+    if (!empty($search_query)) {
+        $stmt = $conn->prepare($sql);
+        $stmt->bind_param("s", $search_param);
+        $stmt->execute();
+        $res = $stmt->get_result();
+    } else {
+        $res = $conn->query($sql);
+    }
     if ($res) {
         while ($row = $res->fetch_assoc()) {
             $students[] = $row;
@@ -114,6 +132,24 @@ if (empty($assigned_classes)) {
             <div class="alert error-msg"><?php echo htmlspecialchars($error); ?></div>
         <?php endif; ?>
 
+        <!-- Search Bar -->
+        <?php if (empty($error)): ?>
+            <div style="margin-bottom: 20px; padding: 15px; background: white; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.05);">
+                <form method="GET" style="display: flex; gap: 10px; align-items: center;">
+                    <div style="flex: 1; max-width: 300px;">
+                        <input type="text" name="search" placeholder="Search student by name..." value="<?php echo htmlspecialchars($search_query); ?>" style="width: 100%; padding: 10px 12px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px;">
+                    </div>
+                    <button type="submit" style="padding: 10px 20px; background: var(--primary); color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600;"><i class="fa-solid fa-magnifying-glass"></i> Search</button>
+                    <?php if (!empty($search_query)): ?>
+                        <a href="my_class.php" style="padding: 10px 20px; background: #6c757d; color: white; border: none; border-radius: 6px; cursor: pointer; text-decoration: none; font-weight: 600;"><i class="fa-solid fa-times"></i> Clear</a>
+                    <?php endif; ?>
+                </form>
+                <?php if (!empty($search_query)): ?>
+                    <p style="margin: 10px 0 0 0; font-size: 13px; color: #666;">Searching for: <strong><?php echo htmlspecialchars($search_query); ?></strong></p>
+                <?php endif; ?>
+            </div>
+        <?php endif; ?>
+
         <?php if ($student_detail): ?>
             <div class="detail-panel">
                 <div style="display:flex; gap:14px; align-items:center;">
@@ -137,14 +173,25 @@ if (empty($assigned_classes)) {
         <?php endif; ?>
 
         <div class="students-grid">
-            <?php foreach ($students as $student): ?>
-                <a class="person-card student-card" href="?view_student=<?php echo (int)$student['id']; ?>">
-                    <img class="person-avatar" src="<?php echo htmlspecialchars(rel_avatar_src($student['profile_picture'] ?? '', '..')); ?>" alt="Student">
-                    <div class="person-name"><?php echo htmlspecialchars($student['username']); ?></div>
-                    <div class="student-meta">Admission: <?php echo htmlspecialchars($student['admission_number'] ?? ('ADM-' . $student['id'])); ?></div>
-                    <span class="class-pill"><?php echo htmlspecialchars($student['class_name']); ?></span>
-                </a>
-            <?php endforeach; ?>
+            <?php if (!empty($students)): ?>
+                <?php foreach ($students as $student): ?>
+                    <a class="person-card student-card" href="?view_student=<?php echo (int)$student['id']; ?><?php if (!empty($search_query)) echo '&search=' . urlencode($search_query); ?>">
+                        <img class="person-avatar" src="<?php echo htmlspecialchars(rel_avatar_src($student['profile_picture'] ?? '', '..')); ?>" alt="Student">
+                        <div class="person-name"><?php echo htmlspecialchars($student['username']); ?></div>
+                        <div class="student-meta">Admission: <?php echo htmlspecialchars($student['admission_number'] ?? ('ADM-' . $student['id'])); ?></div>
+                        <span class="class-pill"><?php echo htmlspecialchars($student['class_name']); ?></span>
+                    </a>
+                <?php endforeach; ?>
+            <?php else: ?>
+                <div style="grid-column: 1 / -1; text-align: center; padding: 40px; color: #999;">
+                    <i class="fa-solid fa-users" style="font-size: 48px; margin-bottom: 15px; display: block;"></i>
+                    <?php if (!empty($search_query)): ?>
+                        <p>No students found matching "<?php echo htmlspecialchars($search_query); ?>"</p>
+                    <?php else: ?>
+                        <p>No students in your class yet.</p>
+                    <?php endif; ?>
+                </div>
+            <?php endif; ?>
         </div>
     </div>
 </body>

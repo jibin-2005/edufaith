@@ -12,17 +12,36 @@ if (!in_array($active_exam, ['exam_1', 'exam_2'], true)) {
     $active_exam = 'exam_1';
 }
 
+// Handle Search
+$search_query = isset($_GET['search']) ? trim($_GET['search']) : '';
+$search_param = '%' . $search_query . '%';
+
 // Fetch students from teacher's class with their marks for the selected exam
-$sql = "SELECT u.id, u.username, r.marks, r.updated_at 
-        FROM users u 
-        JOIN classes c ON u.class_id = c.id 
-        LEFT JOIN results r ON u.id = r.student_id AND r.exam_type = ?
-        WHERE u.role = 'student' AND u.status = 'active' AND c.teacher_id = ?
-        ORDER BY u.username ASC";
-$stmt = $conn->prepare($sql);
-$stmt->bind_param("si", $active_exam, $teacher_id);
-$stmt->execute();
-$students = $stmt->get_result();
+if (!empty($search_query)) {
+    // Use prepared statement for search
+    $sql = "SELECT u.id, u.username, r.marks, r.updated_at 
+            FROM users u 
+            JOIN classes c ON u.class_id = c.id 
+            LEFT JOIN results r ON u.id = r.student_id AND r.exam_type = ?
+            WHERE u.role = 'student' AND u.status = 'active' AND c.teacher_id = ? AND u.username LIKE ?
+            ORDER BY u.username ASC";
+    $stmt = $conn->prepare($sql);
+    $stmt->bind_param("sis", $active_exam, $teacher_id, $search_param);
+    $stmt->execute();
+    $students = $stmt->get_result();
+} else {
+    // Fetch all students
+    $sql = "SELECT u.id, u.username, r.marks, r.updated_at 
+            FROM users u 
+            JOIN classes c ON u.class_id = c.id 
+            LEFT JOIN results r ON u.id = r.student_id AND r.exam_type = ?
+            WHERE u.role = 'student' AND u.status = 'active' AND c.teacher_id = ?
+            ORDER BY u.username ASC";
+    $stmt = $conn->prepare($sql);
+    $stmt->bind_param("si", $active_exam, $teacher_id);
+    $stmt->execute();
+    $students = $stmt->get_result();
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -89,6 +108,23 @@ $students = $stmt->get_result();
                     </span>
                 </h3>
                 
+                <!-- Search Bar -->
+                <div style="margin-bottom: 20px; padding: 15px; background: #f9f9f9; border-radius: 6px; border: 1px solid #eee;">
+                    <form method="GET" style="display: flex; gap: 10px; align-items: center;">
+                        <input type="hidden" name="exam" value="<?php echo htmlspecialchars($active_exam); ?>">
+                        <div style="flex: 1; max-width: 300px;">
+                            <input type="text" name="search" placeholder="Search student by name..." value="<?php echo htmlspecialchars($search_query); ?>" style="width: 100%; padding: 10px 12px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px;">
+                        </div>
+                        <button type="submit" style="padding: 10px 20px; background: var(--primary); color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600;"><i class="fa-solid fa-magnifying-glass"></i> Search</button>
+                        <?php if (!empty($search_query)): ?>
+                            <a href="?exam=<?php echo htmlspecialchars($active_exam); ?>" style="padding: 10px 20px; background: #6c757d; color: white; border: none; border-radius: 6px; cursor: pointer; text-decoration: none; font-weight: 600;"><i class="fa-solid fa-times"></i> Clear</a>
+                        <?php endif; ?>
+                    </form>
+                    <?php if (!empty($search_query)): ?>
+                        <p style="margin: 10px 0 0 0; font-size: 13px; color: #666;">Searching for: <strong><?php echo htmlspecialchars($search_query); ?></strong></p>
+                    <?php endif; ?>
+                </div>
+                
                 <table>
                     <thead>
                         <tr>
@@ -113,7 +149,15 @@ $students = $stmt->get_result();
                                 </tr>
                             <?php endwhile; ?>
                         <?php else: ?>
-                            <tr><td colspan="4" style="text-align:center; color:#999;">No students found in your class.</td></tr>
+                            <tr>
+                                <td colspan="4" style="text-align:center; color:#999; padding:20px;">
+                                    <?php if (!empty($search_query)): ?>
+                                        No students found matching "<?php echo htmlspecialchars($search_query); ?>"
+                                    <?php else: ?>
+                                        No students found in your class.
+                                    <?php endif; ?>
+                                </td>
+                            </tr>
                         <?php endif; ?>
                     </tbody>
                 </table>

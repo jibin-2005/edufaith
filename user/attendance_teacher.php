@@ -19,6 +19,14 @@ if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $date_filter)) {
 }
 $class_id = isset($_GET['class_id']) ? (int)$_GET['class_id'] : 0;
 
+// Handle Search
+$search_query = isset($_GET['search']) ? trim($_GET['search']) : '';
+$search_param = '%' . $search_query . '%';
+
+// Handle Search
+$search_query = isset($_GET['search']) ? trim($_GET['search']) : '';
+$search_param = '%' . $search_query . '%';
+
 // Fetch assigned classes for this teacher
 $stmt_classes = $conn->prepare("SELECT id, class_name FROM classes WHERE teacher_id = ? ORDER BY class_name ASC");
 $stmt_classes->bind_param("i", $teacher_id);
@@ -41,13 +49,24 @@ if ($class_id) {
 if ($class_id) {
     // Fetch students and their current attendance for that date
     // Also fetch leave requirements
-    $stmt_students = $conn->prepare("SELECT u.id, u.username, a.status, lr.status as leave_status 
-                                     FROM users u 
-                                     LEFT JOIN attendance a ON u.id = a.student_id AND a.date = ? AND a.class_id = ?
-                                     LEFT JOIN leave_requests lr ON u.id = lr.student_id AND lr.leave_date = ?
-                                     WHERE u.role = 'student' AND u.class_id = ?
-                                     ORDER BY u.username ASC");
-    $stmt_students->bind_param("sisi", $date_filter, $class_id, $date_filter, $class_id);
+    if (!empty($search_query)) {
+        // Use prepared statement for search
+        $stmt_students = $conn->prepare("SELECT u.id, u.username, a.status, lr.status as leave_status 
+                                         FROM users u 
+                                         LEFT JOIN attendance a ON u.id = a.student_id AND a.date = ? AND a.class_id = ?
+                                         LEFT JOIN leave_requests lr ON u.id = lr.student_id AND lr.leave_date = ?
+                                         WHERE u.role = 'student' AND u.class_id = ? AND u.username LIKE ?
+                                         ORDER BY u.username ASC");
+        $stmt_students->bind_param("sisjs", $date_filter, $class_id, $date_filter, $class_id, $search_param);
+    } else {
+        $stmt_students = $conn->prepare("SELECT u.id, u.username, a.status, lr.status as leave_status 
+                                         FROM users u 
+                                         LEFT JOIN attendance a ON u.id = a.student_id AND a.date = ? AND a.class_id = ?
+                                         LEFT JOIN leave_requests lr ON u.id = lr.student_id AND lr.leave_date = ?
+                                         WHERE u.role = 'student' AND u.class_id = ?
+                                         ORDER BY u.username ASC");
+        $stmt_students->bind_param("sisi", $date_filter, $class_id, $date_filter, $class_id);
+    }
     $stmt_students->execute();
     $res_students = $stmt_students->get_result();
     if ($res_students) {
@@ -126,6 +145,40 @@ if ($class_id) {
         </div>
 
         <?php if ($class_id): ?>
+            <!-- Search Bar for Students -->
+            <div style="margin-bottom: 20px; padding: 15px; background: white; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.05);">
+                <form method="GET" style="display: flex; gap: 10px; align-items: center;">
+                    <input type="hidden" name="class_id" value="<?php echo htmlspecialchars($class_id); ?>">
+                    <input type="hidden" name="date" value="<?php echo htmlspecialchars($date_filter); ?>">
+                    <div style="flex: 1; max-width: 300px;">
+                        <input type="text" name="search" placeholder="Search student by name..." value="<?php echo htmlspecialchars($search_query); ?>" style="width: 100%; padding: 10px 12px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px;">
+                    </div>
+                    <button type="submit" style="padding: 10px 20px; background: var(--primary); color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600;"><i class="fa-solid fa-magnifying-glass"></i> Search</button>
+                    <?php if (!empty($search_query)): ?>
+                        <a href="?class_id=<?php echo htmlspecialchars($class_id); ?>&date=<?php echo htmlspecialchars($date_filter); ?>" style="padding: 10px 20px; background: #6c757d; color: white; border: none; border-radius: 6px; cursor: pointer; text-decoration: none; font-weight: 600;"><i class="fa-solid fa-times"></i> Clear</a>
+                    <?php endif; ?>
+                </form>
+                <?php if (!empty($search_query)): ?>
+                    <p style="margin: 10px 0 0 0; font-size: 13px; color: #666;">Searching for: <strong><?php echo htmlspecialchars($search_query); ?></strong></p>
+                <?php endif; ?>
+            </div>
+            <!-- Search Bar for Students -->
+            <div style="margin-bottom: 20px; padding: 15px; background: white; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.05);">
+                <form method="GET" style="display: flex; gap: 10px; align-items: center;">
+                    <input type="hidden" name="class_id" value="<?php echo htmlspecialchars($class_id); ?>">
+                    <input type="hidden" name="date" value="<?php echo htmlspecialchars($date_filter); ?>">
+                    <div style="flex: 1; max-width: 300px;">
+                        <input type="text" name="search" placeholder="Search student by name..." value="<?php echo htmlspecialchars($search_query); ?>" style="width: 100%; padding: 10px 12px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px;">
+                    </div>
+                    <button type="submit" style="padding: 10px 20px; background: var(--primary); color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600;"><i class="fa-solid fa-magnifying-glass"></i> Search</button>
+                    <?php if (!empty($search_query)): ?>
+                        <a href="?class_id=<?php echo htmlspecialchars($class_id); ?>&date=<?php echo htmlspecialchars($date_filter); ?>" style="padding: 10px 20px; background: #6c757d; color: white; border: none; border-radius: 6px; cursor: pointer; text-decoration: none; font-weight: 600;"><i class="fa-solid fa-times"></i> Clear</a>
+                    <?php endif; ?>
+                </form>
+                <?php if (!empty($search_query)): ?>
+                    <p style="margin: 10px 0 0 0; font-size: 13px; color: #666;">Searching for: <strong><?php echo htmlspecialchars($search_query); ?></strong></p>
+                <?php endif; ?>
+            </div>
             <div class="panel">
                 <div class="panel-header">
                     <h3>Marking Attendance for: <?php echo date('d M Y (l)', strtotime($date_filter)); ?></h3>
