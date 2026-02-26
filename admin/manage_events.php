@@ -112,12 +112,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['publish_results'])) {
 // Handle Event Deletion
 if (isset($_GET['delete'])) {
     $id = intval($_GET['delete']);
-    $stmt = $conn->prepare("DELETE FROM events WHERE id = ?");
-    $stmt->bind_param("i", $id);
-    $stmt->execute();
-    $stmt->close();
-    header("Location: manage_events.php");
-    exit;
+    
+    // Check if event has any student registrations
+    $check_registrations = $conn->prepare("SELECT COUNT(*) as count FROM event_results WHERE event_id = ?");
+    $check_registrations->bind_param("i", $id);
+    $check_registrations->execute();
+    $registration_count = $check_registrations->get_result()->fetch_assoc()['count'];
+    $check_registrations->close();
+    
+    if ($registration_count > 0) {
+        $_GET['error'] = "Cannot delete event with registered students. Please unregister all students first.";
+    } else {
+        $stmt = $conn->prepare("DELETE FROM events WHERE id = ?");
+        $stmt->bind_param("i", $id);
+        if ($stmt->execute()) {
+            header("Location: manage_events.php?msg=deleted");
+            exit;
+        } else {
+            $_GET['error'] = "Error deleting event: " . $conn->error;
+        }
+        $stmt->close();
+    }
 }
 
 // Check if viewing event details

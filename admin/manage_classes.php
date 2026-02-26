@@ -9,38 +9,71 @@ require '../includes/db.php';
 require_once '../includes/relationship_helper.php';
 
 if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST['add_class'])) {
+    require '../includes/validation_helper.php';
+    
     $class_name = trim($_POST['class_name'] ?? '');
     $teacher_id = !empty($_POST['teacher_id']) ? (int)$_POST['teacher_id'] : null;
 
     if ($class_name === '') {
         $error = "Class name is required.";
     } else {
-        $stmt = $conn->prepare("INSERT INTO classes (class_name, teacher_id) VALUES (?, ?)");
-        $stmt->bind_param("si", $class_name, $teacher_id);
-        if ($stmt->execute()) {
-            $msg = "Class created successfully.";
-        } else {
-            $error = "Error creating class: " . $conn->error;
+        // Validate class name
+        $valClassName = Validator::validateText($class_name, 'Class Name');
+        if ($valClassName !== true) {
+            $error = $valClassName;
+        } 
+        // Check class name uniqueness
+        elseif (!Validator::isClassNameUnique($conn, $class_name)) {
+            $error = "Class name already exists. Please choose a different name.";
         }
-        $stmt->close();
+        // Check if teacher already has a class
+        elseif ($teacher_id && Validator::teacherHasClass($conn, $teacher_id)) {
+            $error = "This teacher is already assigned to another class. One teacher can only manage one class.";
+        }
+        else {
+            $stmt = $conn->prepare("INSERT INTO classes (class_name, teacher_id) VALUES (?, ?)");
+            $stmt->bind_param("si", $class_name, $teacher_id);
+            if ($stmt->execute()) {
+                $msg = "Class created successfully.";
+            } else {
+                $error = "Error creating class: " . $conn->error;
+            }
+            $stmt->close();
+        }
     }
 }
 
 if (isset($_GET['delete'])) {
+    require '../includes/validation_helper.php';
+    
     $id = (int)$_GET['delete'];
-    $stmt_unassign = $conn->prepare("UPDATE users SET class_id = NULL WHERE class_id = ?");
-    $stmt_unassign->bind_param("i", $id);
-    $stmt_unassign->execute();
-    $stmt_unassign->close();
-
-    $stmt_del = $conn->prepare("DELETE FROM classes WHERE id = ?");
-    $stmt_del->bind_param("i", $id);
-    if ($stmt_del->execute()) {
-        $msg = "Class deleted successfully.";
+    
+    // Check if class has any students assigned
+    if (Validator::classHasStudents($conn, $id)) {
+        $error = "Cannot delete class with enrolled students. Please unassign all students first.";
     } else {
-        $error = "Error deleting class: " . $conn->error;
+        // Check if class has pending results
+        $check_results = $conn->prepare("SELECT COUNT(*) as count FROM results r
+                                         JOIN users u ON r.student_id = u.id
+                                         WHERE u.class_id = ?");
+        $check_results->bind_param("i", $id);
+        $check_results->execute();
+        $result_count = $check_results->get_result()->fetch_assoc()['count'];
+        $check_results->close();
+        
+        if ($result_count > 0) {
+            $error = "Cannot delete class with existing student results. Please archive the data first.";
+        } else {
+            $stmt_del = $conn->prepare("DELETE FROM classes WHERE id = ?");
+            $stmt_del->bind_param("i", $id);
+            if ($stmt_del->execute()) {
+                $msg = "Class deleted successfully.";
+            } else {
+                $error = "Error deleting class: " . $conn->error;
+            }
+            $stmt_del->close();
+        }
     }
-    $stmt_del->close();
 }
 
 $teacherPhoneCol = rel_has_column($conn, 'users', 'phone') ? "t.phone AS teacher_phone," : "NULL AS teacher_phone,";

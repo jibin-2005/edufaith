@@ -35,11 +35,41 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $verify_stmt = $conn->prepare($verify_sql);
     $verify_stmt->bind_param("ii", $student_id, $teacher_id);
     $verify_stmt->execute();
+    $class_result = $verify_stmt->get_result();
     
-    if ($verify_stmt->get_result()->num_rows === 0) {
+    if ($class_result->num_rows === 0) {
         header("Location: ../user/manage_results.php?exam=$exam_type&error=not_your_class");
         exit;
     }
+    
+    // Check if student attendance is at least 70%
+    $attendance_sql = "SELECT COUNT(*) as present_days FROM attendance WHERE student_id = ? AND status = 'present'";
+    $total_sql = "SELECT COUNT(*) as total_days FROM attendance WHERE student_id = ?";
+    
+    $att_stmt = $conn->prepare($attendance_sql);
+    $att_stmt->bind_param("i", $student_id);
+    $att_stmt->execute();
+    $present_result = $att_stmt->get_result()->fetch_assoc();
+    $att_stmt->close();
+    
+    $total_stmt = $conn->prepare($total_sql);
+    $total_stmt->bind_param("i", $student_id);
+    $total_stmt->execute();
+    $total_result = $total_stmt->get_result()->fetch_assoc();
+    $total_stmt->close();
+    
+    $present_days = $present_result['present_days'] ?? 0;
+    $total_days = $total_result['total_days'] ?? 0;
+    
+    if ($total_days > 0) {
+        $attendance_percentage = ($present_days / $total_days) * 100;
+        if ($attendance_percentage < 70) {
+            header("Location: ../user/manage_results.php?exam=$exam_type&error=attendance_below_70");
+            exit;
+        }
+    }
+    
+    $verify_stmt->close();
 
     // Insert or Update result
     $stmt = $conn->prepare("INSERT INTO results (student_id, exam_type, marks, updated_by) 

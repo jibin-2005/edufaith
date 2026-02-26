@@ -441,19 +441,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['publish_results'])) {
                             <?php 
                             // Get registered students
                             $students_stmt = $conn->prepare("
-                                SELECT u.id, u.username, u.email, er.id as reg_id,
-                                    evr.marks, evr.remarks, evr.result_status
+                                    SELECT u.id, u.username, u.email, er.id as reg_id,
+                                        evr.marks, evr.remarks, evr.result_status, evr.placement
                                 FROM event_registrations er
                                 JOIN users u ON er.student_id = u.id
-                                LEFT JOIN event_results evr ON er.event_id = evr.event_id AND er.student_id = evr.student_id
+                                    LEFT JOIN event_results evr ON er.event_id = evr.event_id AND er.student_id = evr.student_id
                                 WHERE er.event_id = ?
                                 ORDER BY u.username ASC
                             ");
-                            
-                            if (!$students_stmt) {
-                                die("SQL Error: " . $conn->error);
-                            }
-                            
                             $students_stmt->bind_param("i", $event['id']);
                             $students_stmt->execute();
                             $students_result = $students_stmt->get_result();

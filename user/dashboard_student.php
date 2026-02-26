@@ -210,18 +210,6 @@ if ($class_id) {
         </style>
 
         <div class="grid-container">
-            <!-- MEMORY VERSE HERO -->
-            <div class="card" style="grid-column: span 2; background: linear-gradient(135deg, #2ecc71, #27ae60); color: white;">
-                <div class="card-info">
-                    <span style="font-size: 12px; text-transform: uppercase; letter-spacing: 1px; opacity: 0.8;">Verse of the Week</span>
-                    <h3 style="color: white; font-size: 24px; margin: 10px 0;">"For God so loved the world..."</h3>
-                    <p style="color: rgba(255,255,255,0.9);">John 3:16</p>
-                    <button style="margin-top: 15px; padding: 8px 16px; border: none; border-radius: 20px; background: white; color: var(--primary); font-weight: 600; cursor: pointer;">Mark Recited</button>
-                </div>
-                <div class="card-icon" style="background: rgba(255,255,255,0.2); color: white;">
-                    <i class="fa-solid fa-book-open"></i>
-                </div>
-            </div>
 
         </div>
 

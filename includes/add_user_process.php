@@ -20,16 +20,50 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $valName = Validator::validateText($username, 'Full Name');
     if ($valName !== true) { echo json_encode(['success' => false, 'message' => $valName]); exit; }
 
+    // Check username uniqueness
+    if (!Validator::isUsernameUnique($conn, $username)) {
+        echo json_encode(['success' => false, 'message' => 'Username already exists. Please choose a different username.']);
+        exit;
+    }
+
     $valEmail = Validator::validateEmail($email);
     if ($valEmail !== true) { echo json_encode(['success' => false, 'message' => $valEmail]); exit; }
 
     $valPass = Validator::validatePassword($password);
     if ($valPass !== true) { echo json_encode(['success' => false, 'message' => $valPass]); exit; }
 
+    // Check phone uniqueness if provided
+    $phone = $_POST['phone'] ?? '';
+    if (!empty($phone)) {
+        $valPhone = Validator::validatePhone($phone);
+        if ($valPhone !== true) { echo json_encode(['success' => false, 'message' => $valPhone]); exit; }
+        
+        if (!Validator::isPhoneUnique($conn, $phone)) {
+            echo json_encode(['success' => false, 'message' => 'Phone number already exists.']);
+            exit;
+        }
+    }
+
     $allowed_roles = ['admin', 'teacher', 'student', 'parent'];
     if (!in_array($role, $allowed_roles, true)) {
         echo json_encode(['success' => false, 'message' => 'Invalid role selected.']);
         exit;
+    }
+
+    // Role-based field requirements
+    $class_id = !empty($_POST['class_id']) ? (int)$_POST['class_id'] : null;
+    
+    if ($role === 'student' && !$class_id) {
+        echo json_encode(['success' => false, 'message' => 'Students must be assigned to a class.']);
+        exit;
+    }
+
+    if ($role === 'teacher') {
+        $qualification = trim($_POST['qualification'] ?? '');
+        if (empty($qualification)) {
+            echo json_encode(['success' => false, 'message' => 'Teachers must have a qualification specified.']);
+            exit;
+        }
     }
 
     $passwordHash = password_hash($password, PASSWORD_DEFAULT);
@@ -53,9 +87,9 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         exit;
     }
 
-    $stmt = $conn->prepare("INSERT INTO users (username, email, password, role, class_id, firebase_uid, status) VALUES (?, ?, ?, ?, ?, ?, 'active')");
-    $class_id = !empty($_POST['class_id']) ? (int)$_POST['class_id'] : null;
-    $stmt->bind_param("ssssis", $username, $email, $passwordHash, $role, $class_id, $firebase_uid);
+    $stmt = $conn->prepare("INSERT INTO users (username, email, password, role, class_id, phone, qualification, firebase_uid, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'active')");
+    $qualification = $role === 'teacher' ? trim($_POST['qualification'] ?? '') : null;
+    $stmt->bind_param("ssssssss", $username, $email, $passwordHash, $role, $class_id, $phone, $qualification, $firebase_uid);
 
     if ($stmt->execute()) {
         if ($_SESSION['role'] === 'teacher') {

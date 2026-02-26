@@ -8,6 +8,7 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'admin') {
 }
 
 require 'db.php';
+require 'validation_helper.php';
 
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $teacher_id = intval($_POST['teacher_id']);
@@ -23,6 +24,18 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         exit;
     }
     $check->close();
+
+    // Check if teacher has a class assigned
+    if (Validator::teacherHasClass($conn, $teacher_id)) {
+        echo json_encode(['success' => false, 'message' => 'Cannot delete teacher who is assigned to a class. Please unassign the class first.']);
+        exit;
+    }
+
+    // Check if teacher has pending results to grade
+    if (Validator::teacherHasPendingResults($conn, $teacher_id)) {
+        echo json_encode(['success' => false, 'message' => 'Cannot delete teacher with pending results to grade. Please complete all grading first.']);
+        exit;
+    }
 
     if ($delete_type === 'soft') {
         $stmt = $conn->prepare("UPDATE users SET status = 'inactive' WHERE id = ?");

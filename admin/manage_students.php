@@ -7,27 +7,51 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'admin') {
 
 require '../includes/db.php';
 
-// Handle Search
+// Fetch all classes for filter dropdown
+$classes_sql = "SELECT id, class_name FROM classes ORDER BY class_name ASC";
+$classes_result = $conn->query($classes_sql);
+$classes = [];
+while ($class_row = $classes_result->fetch_assoc()) {
+    $classes[] = $class_row;
+}
+
+// Handle Search and Filter
 $search_query = isset($_GET['search']) ? trim($_GET['search']) : '';
+$class_filter = isset($_GET['class']) ? trim($_GET['class']) : '';
 $search_param = '%' . $search_query . '%';
 
-// Fetch students with search filter
+// Build query with filters
+$where_conditions = ["u.role = 'student'"];
+$params = [];
+$types = "";
+
 if (!empty($search_query)) {
-    // Use prepared statement for search
-    $sql = "SELECT u.id, u.username, u.email, c.class_name FROM users u 
-            LEFT JOIN classes c ON u.class_id = c.id 
-            WHERE u.role = 'student' AND u.username LIKE ? 
-            ORDER BY c.class_name ASC, u.username ASC";
+    $where_conditions[] = "u.username LIKE ?";
+    $params[] = $search_param;
+    $types .= "s";
+}
+
+if (!empty($class_filter)) {
+    if ($class_filter === 'unassigned') {
+        $where_conditions[] = "u.class_id IS NULL";
+    } else {
+        $where_conditions[] = "u.class_id = ?";
+        $params[] = $class_filter;
+        $types .= "i";
+    }
+}
+
+$sql = "SELECT u.id, u.username, u.email, c.class_name FROM users u 
+        LEFT JOIN classes c ON u.class_id = c.id 
+        WHERE " . implode(" AND ", $where_conditions) . " 
+        ORDER BY c.class_name ASC, u.username ASC";
+
+if (!empty($params)) {
     $stmt = $conn->prepare($sql);
-    $stmt->bind_param("s", $search_param);
+    $stmt->bind_param($types, ...$params);
     $stmt->execute();
     $result = $stmt->get_result();
 } else {
-    // Fetch all students
-    $sql = "SELECT u.id, u.username, u.email, c.class_name FROM users u 
-            LEFT JOIN classes c ON u.class_id = c.id 
-            WHERE u.role = 'student' 
-            ORDER BY c.class_name ASC, u.username ASC";
     $result = $conn->query($sql);
 }
 ?>
@@ -81,19 +105,49 @@ if (!empty($search_query)) {
         <?php endif; ?>
 
         <div class="panel">
-            <!-- Search Bar -->
+            <!-- Search and Filter Bar -->
             <div style="margin-bottom: 20px; padding-bottom: 15px; border-bottom: 1px solid #eee;">
-                <form method="GET" style="display: flex; gap: 10px; align-items: center;">
+                <form method="GET" style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
                     <div style="flex: 1; max-width: 300px;">
                         <input type="text" name="search" placeholder="Search by name..." value="<?php echo htmlspecialchars($search_query); ?>" style="width: 100%; padding: 10px 12px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px;">
                     </div>
-                    <button type="submit" style="padding: 10px 20px; background: var(--primary); color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600;"><i class="fa-solid fa-magnifying-glass"></i> Search</button>
-                    <?php if (!empty($search_query)): ?>
+                    <div style="min-width: 200px;">
+                        <select name="class" style="width: 100%; padding: 10px 12px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px; background: white;">
+                            <option value="">All Classes</option>
+                            <option value="unassigned" <?php echo $class_filter === 'unassigned' ? 'selected' : ''; ?>>Unassigned</option>
+                            <?php foreach ($classes as $class): ?>
+                                <option value="<?php echo $class['id']; ?>" <?php echo $class_filter == $class['id'] ? 'selected' : ''; ?>>
+                                    <?php echo htmlspecialchars($class['class_name']); ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                    <button type="submit" style="padding: 10px 20px; background: var(--primary); color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600;"><i class="fa-solid fa-filter"></i> Filter</button>
+                    <?php if (!empty($search_query) || !empty($class_filter)): ?>
                         <a href="manage_students.php" style="padding: 10px 20px; background: #6c757d; color: white; border: none; border-radius: 6px; cursor: pointer; text-decoration: none; font-weight: 600;"><i class="fa-solid fa-times"></i> Clear</a>
                     <?php endif; ?>
                 </form>
-                <?php if (!empty($search_query)): ?>
-                    <p style="margin: 10px 0 0 0; font-size: 13px; color: #666;">Searching for: <strong><?php echo htmlspecialchars($search_query); ?></strong></p>
+                <?php if (!empty($search_query) || !empty($class_filter)): ?>
+                    <p style="margin: 10px 0 0 0; font-size: 13px; color: #666;">
+                        <?php if (!empty($search_query)): ?>
+                            Searching for: <strong><?php echo htmlspecialchars($search_query); ?></strong>
+                        <?php endif; ?>
+                        <?php if (!empty($class_filter)): ?>
+                            <?php if (!empty($search_query)) echo " | "; ?>
+                            Class: <strong>
+                                <?php 
+                                if ($class_filter === 'unassigned') {
+                                    echo 'Unassigned';
+                                } else {
+                                    $selected_class = array_filter($classes, function($c) use ($class_filter) {
+                                        return $c['id'] == $class_filter;
+                                    });
+                                    echo !empty($selected_class) ? htmlspecialchars(reset($selected_class)['class_name']) : 'Unknown';
+                                }
+                                ?>
+                            </strong>
+                        <?php endif; ?>
+                    </p>
                 <?php endif; ?>
             </div>
 
@@ -142,8 +196,8 @@ if (!empty($search_query)) {
                     <?php else: ?>
                         <tr>
                             <td colspan="6" style="text-align: center; padding: 20px; color: #888;">
-                                <?php if (!empty($search_query)): ?>
-                                    No students found matching "<?php echo htmlspecialchars($search_query); ?>"
+                                <?php if (!empty($search_query) || !empty($class_filter)): ?>
+                                    No students found matching the selected filters.
                                 <?php else: ?>
                                     No students found.
                                 <?php endif; ?>

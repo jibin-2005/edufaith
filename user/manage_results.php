@@ -86,7 +86,18 @@ if (!empty($search_query)) {
             <div class="success-msg"><i class="fa-solid fa-circle-check"></i> Marks updated successfully!</div>
         <?php endif; ?>
         <?php if (isset($_GET['error'])): ?>
-            <div class="error-msg"><i class="fa-solid fa-circle-exclamation"></i> Error: <?= htmlspecialchars($_GET['error']) ?></div>
+            <?php 
+                $error_messages = [
+                    'invalid_data' => 'Invalid student or exam data provided.',
+                    'invalid_marks' => 'Marks must be between 0 and 100.',
+                    'not_your_class' => 'You can only update results for students in your class.',
+                    'attendance_below_70' => 'Cannot update result: Student attendance is below 70%. Students must have at least 70% attendance to be graded.',
+                    'db_error' => 'Database error occurred. Please try again.'
+                ];
+                $error_key = $_GET['error'];
+                $error_text = $error_messages[$error_key] ?? htmlspecialchars($_GET['error']);
+            ?>
+            <div class="error-msg"><i class="fa-solid fa-circle-exclamation"></i> <?= $error_text ?></div>
         <?php endif; ?>
 
         <!-- Tabs -->

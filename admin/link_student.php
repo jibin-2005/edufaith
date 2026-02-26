@@ -8,22 +8,52 @@ require '../includes/db.php';
 
 // Handle Form Submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    require '../includes/validation_helper.php';
+    
     $parent_id = $_POST['parent_id'];
     $student_ids = $_POST['student_ids'] ?? [];
 
     if ($parent_id && !empty($student_ids)) {
-        // Clear existing links if you want to overwrite, or just add new ones? 
-        // Usually safer to just add. But let's assume we are adding.
-        // Actually, preventing duplicates is good. 
-        // For this simple implementation, we will Loop and Insert Ignore.
+        // Check maximum children limit (10)
+        $current_count = Validator::countParentChildren($conn, $parent_id);
+        $new_total = $current_count + count($student_ids);
         
-        $stmt = $conn->prepare("INSERT IGNORE INTO parent_student (parent_id, student_id) VALUES (?, ?)");
-        $successCount = 0;
-        foreach ($student_ids as $sid) {
-            $stmt->bind_param("ii", $parent_id, $sid);
-            if ($stmt->execute()) $successCount++;
+        if ($new_total > 10) {
+            $error_msg = "Cannot link more than 10 children to a parent. Current: $current_count, Attempting to add: " . count($student_ids);
+        } else {
+            $stmt = $conn->prepare("INSERT IGNORE INTO parent_student (parent_id, student_id) VALUES (?, ?)");
+            $successCount = 0;
+            $duplicateCount = 0;
+            $inactiveCount = 0;
+            
+            foreach ($student_ids as $sid) {
+                // Check if student is active
+                $check_active = $conn->prepare("SELECT status FROM users WHERE id = ? AND role = 'student'");
+                $check_active->bind_param("i", $sid);
+                $check_active->execute();
+                $student_result = $check_active->get_result();
+                
+                if ($student_result->num_rows === 0 || $student_result->fetch_assoc()['status'] !== 'active') {
+                    $inactiveCount++;
+                    $check_active->close();
+                    continue;
+                }
+                $check_active->close();
+                
+                // Check if link already exists
+                if (Validator::parentStudentLinkExists($conn, $parent_id, $sid)) {
+                    $duplicateCount++;
+                    continue;
+                }
+                
+                $stmt->bind_param("ii", $parent_id, $sid);
+                if ($stmt->execute()) $successCount++;
+            }
+            
+            $msg = "Successfully linked $successCount student(s).";
+            if ($duplicateCount > 0) $msg .= " $duplicateCount already linked.";
+            if ($inactiveCount > 0) $msg .= " $inactiveCount inactive students skipped.";
         }
-        $msg = "Successfully linked $successCount student(s).";
     }
 }
 
@@ -51,6 +81,7 @@ $students = $conn->query("SELECT id, username, email FROM users WHERE role = 'st
     <div class="container">
         <h2>Link Parent to Students</h2>
         <?php if(isset($msg)) echo "<p style='color:green'>$msg</p>"; ?>
+        <?php if(isset($error_msg)) echo "<p style='color:red'>$error_msg</p>"; ?>
         
         <form method="POST">
             <label>Select Parent:</label>

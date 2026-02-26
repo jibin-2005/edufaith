@@ -66,10 +66,7 @@ if (!function_exists('render_sidebar')) {
                 ['label' => 'Profile', 'icon' => 'fa-user-gear', 'href' => 'profile.php', 'area' => 'user', 'active' => ['profile.php']],
             ],
             'student' => [
-                ['label' => 'Dashboard', 'icon' => 'fa-table-columns', 'href' => 'dashboard_student.php', 'area' => 'user', 'active' => ['dashboard_student.php', 'achievements.php', 'calendar.php', 'payments.php']],
-                ['label' => 'Achievements', 'icon' => 'fa-trophy', 'href' => 'achievements.php', 'area' => 'user', 'active' => ['achievements.php']],
-                ['label' => 'Calendar', 'icon' => 'fa-calendar', 'href' => 'calendar.php', 'area' => 'user', 'active' => ['calendar.php']],
-                ['label' => 'Payments', 'icon' => 'fa-credit-card', 'href' => 'payments.php', 'area' => 'user', 'active' => ['payments.php']],
+                ['label' => 'Dashboard', 'icon' => 'fa-table-columns', 'href' => 'dashboard_student.php', 'area' => 'user', 'active' => ['dashboard_student.php']],
                 ['label' => 'Attendance', 'icon' => 'fa-calendar-check', 'href' => 'attendance_student.php', 'area' => 'user', 'active' => ['attendance_student.php', 'view_attendance.php']],
                 ['label' => 'Leave Requests', 'icon' => 'fa-envelope-open-text', 'href' => 'leave_student.php', 'area' => 'user', 'active' => ['leave_student.php']],
                 ['label' => 'My Lessons', 'icon' => 'fa-book-bible', 'href' => 'my_lessons.php', 'area' => 'user', 'active' => ['my_lessons.php']],

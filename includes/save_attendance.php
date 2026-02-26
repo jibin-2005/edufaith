@@ -19,8 +19,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         die("Error: " . $valDate);
     }
     
-    // Rule: Teachers cannot edit previous dates (User Requirement 4)
-    // "Attendance marking allowed only for current date" (User Requirement 3)
+    // Sunday-only validation
+    if (!Validator::isSunday($date)) {
+        die("Error: Attendance can only be marked on Sundays.");
+    }
+    
     // Rule: Teachers cannot edit previous dates (User Requirement 4)
     // "Attendance marking allowed only for current date" (User Requirement 3)
     if ($_SESSION['role'] === 'teacher') {
@@ -54,6 +57,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (!in_array($status, $allowed_statuses)) {
             continue; // Skip invalid status
         }
+
+        // Verify student is enrolled in this class
+        $verify_student = $conn->prepare("SELECT id FROM users WHERE id = ? AND class_id = ? AND role = 'student'");
+        $verify_student->bind_param("ii", $student_id, $class_id);
+        $verify_student->execute();
+        if ($verify_student->get_result()->num_rows === 0) {
+            $verify_student->close();
+            continue; // Skip students not in this class
+        }
+        $verify_student->close();
 
         $stmt->bind_param("iiiss", $student_id, $class_id, $teacher_id, $date, $status);
         $stmt->execute();

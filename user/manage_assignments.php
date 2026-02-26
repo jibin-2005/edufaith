@@ -13,13 +13,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_assignment'])) {
     $description = $_POST['description'];
     $due_date = $_POST['due_date'];
     $class_id = intval($_POST['class_id']);
+    $submission_required = isset($_POST['submission_required']) ? 1 : 0;
     
     // Validation
     $errors = [];
     $valTitle = Validator::validateTitle($title, 'Title');
     if ($valTitle !== true) $errors[] = $valTitle;
 
-    $valDesc = Validator::validateDescription($description, 'Details', 5); // Allow shorter desc for assignments? Default is 10
+    $valDesc = Validator::validateDescription($description, 'Details', 5);
     if ($valDesc !== true) $errors[] = $valDesc;
 
     $valDate = Validator::validateDate($due_date, 'Due Date', 'future_only');
@@ -37,14 +38,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_assignment'])) {
             $errors[] = "You can only post assignments to your own class.";
         }
         $check->close();
+        
+        // Check assignment title uniqueness for this class and date
+        $check_title = $conn->prepare("SELECT id FROM assignments WHERE title = ? AND class_id = ? AND DATE(due_date) = DATE(?)");
+        $check_title->bind_param("sis", $title, $class_id, $due_date);
+        $check_title->execute();
+        if ($check_title->get_result()->num_rows > 0) {
+            $errors[] = "An assignment with this title already exists for this class on the same due date.";
+        }
+        $check_title->close();
     }
 
     if (empty($errors)) {
         $assigned_by = $_SESSION['user_id'];
         $created_by = $_SESSION['user_id'];
 
-        $stmt = $conn->prepare("INSERT INTO assignments (title, description, due_date, class_id, assigned_by, created_by) VALUES (?, ?, ?, ?, ?, ?)");
-        $stmt->bind_param("sssiii", $title, $description, $due_date, $class_id, $assigned_by, $created_by);
+        $stmt = $conn->prepare("INSERT INTO assignments (title, description, due_date, class_id, assigned_by, created_by, submission_required) VALUES (?, ?, ?, ?, ?, ?, ?)");
+        $stmt->bind_param("sssiiui", $title, $description, $due_date, $class_id, $assigned_by, $created_by, $submission_required);
         if ($stmt->execute()) {
              header("Location: manage_assignments.php?msg=success");
              exit;
@@ -69,12 +79,34 @@ if (isset($_GET['delete'])) {
     exit;
 }
 
-// Fetch Assignments created by this teacher
-$stmt_list = $conn->prepare("SELECT a.*, c.class_name 
-                             FROM assignments a 
-                             LEFT JOIN classes c ON a.class_id = c.id 
-                             WHERE a.assigned_by = ? 
-                             ORDER BY a.due_date DESC");
+// Fetch Assignments created by this teacher with submission stats
+// Check if assignment_submissions table exists
+$table_check = $conn->query("SHOW TABLES LIKE 'assignment_submissions'");
+$table_exists = $table_check && $table_check->num_rows > 0;
+
+if ($table_exists) {
+    $stmt_list = $conn->prepare("SELECT a.*, c.class_name,
+                                 COUNT(CASE WHEN asub.status = 'submitted' THEN 1 END) as submitted_count,
+                                 COUNT(DISTINCT astu.id) as total_students
+                                 FROM assignments a 
+                                 LEFT JOIN classes c ON a.class_id = c.id
+                                 LEFT JOIN assignment_submissions asub ON a.id = asub.assignment_id
+                                 LEFT JOIN users astu ON astu.class_id = a.class_id AND astu.role = 'student'
+                                 WHERE a.assigned_by = ? 
+                                 GROUP BY a.id
+                                 ORDER BY a.due_date DESC");
+} else {
+    $stmt_list = $conn->prepare("SELECT a.*, c.class_name, 0 as submitted_count, 0 as total_students
+                                 FROM assignments a 
+                                 LEFT JOIN classes c ON a.class_id = c.id
+                                 WHERE a.assigned_by = ? 
+                                 ORDER BY a.due_date DESC");
+}
+
+if (!$stmt_list) {
+    die("Database Error: " . $conn->error);
+}
+
 $stmt_list->bind_param("i", $_SESSION['user_id']);
 $stmt_list->execute();
 $result = $stmt_list->get_result();
@@ -145,8 +177,14 @@ $classes = $stmt_classes->get_result();
                     <input type="date" name="due_date" required min="<?php echo date('Y-m-d'); ?>">
                 </div>
                 <div class="form-group">
-                    <label>Details</label>
-                    <textarea name="description" rows="3"></textarea>
+                    <label>Work/Problem Details</label>
+                    <textarea name="description" rows="3" placeholder="Describe the work students need to submit..."></textarea>
+                </div>
+                <div class="form-group">
+                    <label style="display: flex; align-items: center; gap: 8px;">
+                        <input type="checkbox" name="submission_required">
+                        <span>Students must submit work (PDF only)</span>
+                    </label>
                 </div>
                 <button type="submit" name="add_assignment" class="btn-primary">Post Assignment</button>
             </form>
@@ -172,6 +210,7 @@ $classes = $stmt_classes->get_result();
                         <th>Title</th>
                         <th>Class</th>
                         <th>Due Date</th>
+                        <th>Submissions</th>
                         <th>Action</th>
                     </tr>
                 </thead>
@@ -189,6 +228,19 @@ $classes = $stmt_classes->get_result();
                             <?php endif; ?>
                         </td>
                         <td><?php echo date("M j, Y", strtotime($row['due_date'])); ?></td>
+                        <td>
+                            <?php if (isset($row['submission_required']) && $row['submission_required']): ?>
+                                <span style="font-size: 12px; color: #0066cc; font-weight: 600;">
+                                    <i class="fa-solid fa-file-pdf"></i> <?php echo $row['submitted_count']; ?>/<?php echo $row['total_students']; ?> submitted
+                                </span>
+                                <br>
+                                <a href="view_submissions.php?assignment_id=<?php echo $row['id']; ?>" style="font-size: 12px; color: var(--primary); text-decoration: none;">
+                                    <i class="fa-solid fa-eye"></i> View Submissions
+                                </a>
+                            <?php else: ?>
+                                <span style="font-size: 12px; color: #999;">No submission</span>
+                            <?php endif; ?>
+                        </td>
                         <td>
                             <a href="?delete=<?php echo $row['id']; ?>" class="btn-delete" onclick="return confirm('Delete?');"><i class="fa-solid fa-trash"></i></a>
                         </td>
