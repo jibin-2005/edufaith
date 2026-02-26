@@ -7,6 +7,12 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'teacher') {
 require '../includes/db.php';
 require '../includes/validation_helper.php';
 
+$has_submission_required = false;
+$check_submission_col = $conn->query("SHOW COLUMNS FROM assignments LIKE 'submission_required'");
+if ($check_submission_col && $check_submission_col->num_rows > 0) {
+    $has_submission_required = true;
+}
+
 // Add Assignment
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_assignment'])) {
     $title = $_POST['title'];
@@ -53,15 +59,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_assignment'])) {
         $assigned_by = $_SESSION['user_id'];
         $created_by = $_SESSION['user_id'];
 
-        $stmt = $conn->prepare("INSERT INTO assignments (title, description, due_date, class_id, assigned_by, created_by, submission_required) VALUES (?, ?, ?, ?, ?, ?, ?)");
-        $stmt->bind_param("sssiiui", $title, $description, $due_date, $class_id, $assigned_by, $created_by, $submission_required);
-        if ($stmt->execute()) {
+        if ($has_submission_required) {
+            $stmt = $conn->prepare("INSERT INTO assignments (title, description, due_date, class_id, assigned_by, created_by, submission_required) VALUES (?, ?, ?, ?, ?, ?, ?)");
+            if (!$stmt) {
+                $error_msg = "Database Error: " . $conn->error;
+            } else {
+                $stmt->bind_param("sssiiii", $title, $description, $due_date, $class_id, $assigned_by, $created_by, $submission_required);
+            }
+        } else {
+            $stmt = $conn->prepare("INSERT INTO assignments (title, description, due_date, class_id, assigned_by, created_by) VALUES (?, ?, ?, ?, ?, ?)");
+            if (!$stmt) {
+                $error_msg = "Database Error: " . $conn->error;
+            } else {
+                $stmt->bind_param("sssiii", $title, $description, $due_date, $class_id, $assigned_by, $created_by);
+            }
+        }
+
+        if (isset($error_msg)) {
+            // Already set above.
+        } elseif ($stmt->execute()) {
              header("Location: manage_assignments.php?msg=success");
              exit;
         } else {
              $error_msg = "Database Error: " . $conn->error;
         }
-        $stmt->close();
+        if ($stmt) $stmt->close();
     } else {
         $error_msg = implode("<br>", $errors);
     }
@@ -86,7 +108,7 @@ $table_exists = $table_check && $table_check->num_rows > 0;
 
 if ($table_exists) {
     $stmt_list = $conn->prepare("SELECT a.*, c.class_name,
-                                 COUNT(CASE WHEN asub.status = 'submitted' THEN 1 END) as submitted_count,
+                                 COUNT(DISTINCT CASE WHEN asub.status = 'submitted' THEN asub.student_id END) as submitted_count,
                                  COUNT(DISTINCT astu.id) as total_students
                                  FROM assignments a 
                                  LEFT JOIN classes c ON a.class_id = c.id
@@ -134,6 +156,32 @@ $classes = $stmt_classes->get_result();
         table { width: 100%; border-collapse: collapse; }
         th, td { padding: 12px; text-align: left; border-bottom: 1px solid #eee; }
         .btn-delete { color: #e74c3c; cursor: pointer; }
+        .submission-check-row {
+            margin: 10px 0 18px;
+        }
+        .submission-check {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            cursor: pointer;
+            user-select: none;
+            font-weight: 600;
+            color: #2c3e50;
+        }
+        .submission-check input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            margin: 0;
+            accent-color: var(--primary);
+            flex: 0 0 auto;
+        }
+        .submission-check small {
+            display: block;
+            font-size: 12px;
+            color: #6c7a89;
+            font-weight: 500;
+            margin-top: 2px;
+        }
     </style>
 </head>
 <body>
@@ -180,10 +228,13 @@ $classes = $stmt_classes->get_result();
                     <label>Work/Problem Details</label>
                     <textarea name="description" rows="3" placeholder="Describe the work students need to submit..."></textarea>
                 </div>
-                <div class="form-group">
-                    <label style="display: flex; align-items: center; gap: 8px;">
-                        <input type="checkbox" name="submission_required">
-                        <span>Students must submit work (PDF only)</span>
+                <div class="submission-check-row">
+                    <label class="submission-check">
+                        <input type="checkbox" name="submission_required" value="1">
+                        <span>
+                            Students must submit work (PDF only)
+                            <small>Enable this to allow student file uploads for this assignment.</small>
+                        </span>
                     </label>
                 </div>
                 <button type="submit" name="add_assignment" class="btn-primary">Post Assignment</button>

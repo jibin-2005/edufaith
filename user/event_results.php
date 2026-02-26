@@ -25,9 +25,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_result'])) {
     if ($marks < 0 || $marks > 100) {
         $_GET['error'] = 'Marks must be between 0 and 100';
     } else {
-        // Verify teacher is assigned to this event
+        // Verify teacher is assigned to this event and event date has started
         $verify = $conn->query("SELECT id FROM event_teachers WHERE event_id = $event_id AND teacher_id = $teacher_id");
-        if ($verify->num_rows > 0) {
+        $event_row = $conn->query("SELECT event_date, is_results_published FROM events WHERE id = $event_id")->fetch_assoc();
+        if ($verify->num_rows > 0 && $event_row) {
+            if (!empty($event_row['is_results_published'])) {
+                $_GET['error'] = 'Results are already published for this event.';
+            } elseif (strtotime($event_row['event_date']) > time()) {
+                $_GET['error'] = 'Marks can be submitted only on or after the event date.';
+            } else {
             $stmt = $conn->prepare("INSERT INTO event_results (event_id, student_id, marks, remarks) 
                                     VALUES (?, ?, ?, ?) 
                                     ON DUPLICATE KEY UPDATE marks = ?, remarks = ?");
@@ -38,6 +44,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_result'])) {
                 $_GET['error'] = 'Error saving result: ' . $conn->error;
             }
             $stmt->close();
+            }
         } else {
             $_GET['error'] = 'You are not assigned to this event';
         }

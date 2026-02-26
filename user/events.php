@@ -9,6 +9,23 @@ require '../includes/validation_helper.php';
 
 $role = $_SESSION['role'];
 $user_id = $_SESSION['user_id'];
+$student_section = null;
+$teacher_section = null;
+
+if ($role === 'student') {
+    $student_section = Validator::getStudentSection($conn, $user_id);
+}
+if ($role === 'teacher') {
+    $teacher_section = Validator::getTeacherSection($conn, $user_id);
+}
+
+$sections = [];
+$sections_result = $conn->query("SELECT id, section_name, class_range FROM sections ORDER BY id");
+if ($sections_result) {
+    while ($row = $sections_result->fetch_assoc()) {
+        $sections[] = $row;
+    }
+}
 
 // Handle New Event (Admin Only)
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_event']) && $role === 'admin') {
@@ -16,6 +33,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_event']) && $role
     $description = trim($_POST['description']);
     $event_date_input = trim($_POST['event_date'] ?? '');
     $event_date = $event_date_input;
+    $section_id = intval($_POST['section_id'] ?? 0);
 
     // Validation
     $errors = [];
@@ -28,6 +46,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_event']) && $role
     $valDate = Validator::validateDate($event_date_input, 'Event Date', 'future_only');
     if ($valDate !== true) $errors[] = $valDate;
 
+    if ($section_id <= 0) {
+        $errors[] = "Please select a section for this event.";
+    }
+
     if (empty($errors)) {
         $created_by = $_SESSION['user_id'];
         // Convert HTML5 datetime-local (YYYY-MM-DDTHH:MM) to MySQL DATETIME
@@ -36,8 +58,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_event']) && $role
             $event_date .= ':00';
         }
 
-        $stmt = $conn->prepare("INSERT INTO events (title, event_date, description, created_by, status, is_results_published) VALUES (?, ?, ?, ?, 'upcoming', FALSE)");
-        $stmt->bind_param("sssi", $title, $event_date, $description, $created_by);
+        if (!Validator::isEventNameUniqueInSection($conn, $title, $section_id)) {
+            $errors[] = "An event with this title already exists in the selected section.";
+        }
+    }
+
+    if (empty($errors)) {
+        $stmt = $conn->prepare("INSERT INTO events (title, event_date, description, section_id, created_by, status, is_results_published) VALUES (?, ?, ?, ?, ?, 'upcoming', FALSE)");
+        $stmt->bind_param("sssii", $title, $event_date, $description, $section_id, $created_by);
         if ($stmt->execute()) {
             header("Location: events.php?msg=created");
             exit;
@@ -63,30 +91,46 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['register_event']) && 
     if (!$table_check || $table_check->num_rows === 0) {
         $_GET['error'] = 'System not initialized. Please contact administrator.';
     } else {
-        // Check if already registered
-        $check_stmt = $conn->prepare("SELECT id FROM event_registrations WHERE event_id = ? AND student_id = ?");
-        $check_stmt->bind_param("ii", $event_id, $student_id);
-        $check_stmt->execute();
-        $existing = $check_stmt->get_result()->fetch_assoc();
-        $check_stmt->close();
-        
-        if (!$existing) {
-            $insert_stmt = $conn->prepare("INSERT INTO event_registrations (event_id, student_id) VALUES (?, ?)");
-            $insert_stmt->bind_param("ii", $event_id, $student_id);
-            if ($insert_stmt->execute()) {
-                // Also create a result record for this event
-                $result_stmt = $conn->prepare("INSERT INTO event_results (event_id, student_id, result_status) VALUES (?, ?, 'pending') ON DUPLICATE KEY UPDATE result_status = 'pending'");
-                $result_stmt->bind_param("ii", $event_id, $student_id);
-                $result_stmt->execute();
-                $result_stmt->close();
-                
-                $_GET['msg'] = 'registered';
-            } else {
-                $_GET['error'] = 'Failed to register for event';
-            }
-            $insert_stmt->close();
+        $event_stmt = $conn->prepare("SELECT id, event_date, section_id FROM events WHERE id = ?");
+        $event_stmt->bind_param("i", $event_id);
+        $event_stmt->execute();
+        $event_row = $event_stmt->get_result()->fetch_assoc();
+        $event_stmt->close();
+
+        if (!$event_row) {
+            $_GET['error'] = 'Event not found';
+        } elseif (strtotime($event_row['event_date']) < time()) {
+            $_GET['error'] = 'Registration closed. Event date has passed.';
+        } elseif (!$student_section) {
+            $_GET['error'] = 'You are not assigned to any section. Please contact admin.';
+        } elseif (intval($event_row['section_id']) !== intval($student_section)) {
+            $_GET['error'] = 'This event belongs to another section.';
         } else {
-            $_GET['error'] = 'already_registered';
+            // Check if already registered
+            $check_stmt = $conn->prepare("SELECT id FROM event_registrations WHERE event_id = ? AND student_id = ?");
+            $check_stmt->bind_param("ii", $event_id, $student_id);
+            $check_stmt->execute();
+            $existing = $check_stmt->get_result()->fetch_assoc();
+            $check_stmt->close();
+
+            if (!$existing) {
+                $insert_stmt = $conn->prepare("INSERT INTO event_registrations (event_id, student_id) VALUES (?, ?)");
+                $insert_stmt->bind_param("ii", $event_id, $student_id);
+                if ($insert_stmt->execute()) {
+                    // Also create a result record for this event
+                    $result_stmt = $conn->prepare("INSERT INTO event_results (event_id, student_id, result_status) VALUES (?, ?, 'pending') ON DUPLICATE KEY UPDATE result_status = 'pending'");
+                    $result_stmt->bind_param("ii", $event_id, $student_id);
+                    $result_stmt->execute();
+                    $result_stmt->close();
+
+                    $_GET['msg'] = 'registered';
+                } else {
+                    $_GET['error'] = 'Failed to register for event';
+                }
+                $insert_stmt->close();
+            } else {
+                $_GET['error'] = 'already_registered';
+            }
         }
     }
 }
@@ -104,11 +148,46 @@ if (isset($_GET['cancel_registration'])) {
     $_GET['msg'] = 'cancelled';
 }
 
-// Fetch upcoming events
-$sql = "SELECT id, title, event_date, description, status, is_results_published FROM events 
-        WHERE event_date >= CURDATE() 
-        ORDER BY event_date ASC";
-$result = $conn->query($sql);
+// Fetch events by role/section
+if ($role === 'student') {
+    if (!$student_section) {
+        $result = $conn->query("SELECT e.id, e.title, e.event_date, e.description, e.status, e.is_results_published, s.section_name, s.class_range
+                                FROM events e
+                                LEFT JOIN sections s ON s.id = e.section_id
+                                WHERE 1 = 0");
+    } else {
+    $stmt_events = $conn->prepare("SELECT e.id, e.title, e.event_date, e.description, e.status, e.is_results_published, s.section_name, s.class_range
+                                   FROM events e
+                                   LEFT JOIN sections s ON s.id = e.section_id
+                                   WHERE e.section_id = ? AND e.event_date >= CURDATE()
+                                   ORDER BY e.event_date ASC");
+    $stmt_events->bind_param("i", $student_section);
+    $stmt_events->execute();
+    $result = $stmt_events->get_result();
+    }
+} elseif ($role === 'teacher') {
+    if (!$teacher_section) {
+        $result = $conn->query("SELECT e.id, e.title, e.event_date, e.description, e.status, e.is_results_published, s.section_name, s.class_range
+                                FROM events e
+                                LEFT JOIN sections s ON s.id = e.section_id
+                                WHERE 1 = 0");
+    } else {
+    $stmt_events = $conn->prepare("SELECT e.id, e.title, e.event_date, e.description, e.status, e.is_results_published, s.section_name, s.class_range
+                                   FROM events e
+                                   LEFT JOIN sections s ON s.id = e.section_id
+                                   WHERE e.section_id = ? AND e.event_date >= CURDATE()
+                                   ORDER BY e.event_date ASC");
+    $stmt_events->bind_param("i", $teacher_section);
+    $stmt_events->execute();
+    $result = $stmt_events->get_result();
+    }
+} else {
+    $result = $conn->query("SELECT e.id, e.title, e.event_date, e.description, e.status, e.is_results_published, s.section_name, s.class_range
+                            FROM events e
+                            LEFT JOIN sections s ON s.id = e.section_id
+                            WHERE e.event_date >= CURDATE()
+                            ORDER BY e.event_date ASC");
+}
 if (!$result) {
     $result = new mysqli_result(null); // Create empty result on error
 }
@@ -145,11 +224,40 @@ $event_teachers = [];
 $student_result = null;
 
 if ($view_event_id > 0) {
-    $stmt = $conn->prepare("SELECT * FROM events WHERE id = ?");
+    $stmt = $conn->prepare("SELECT e.*, s.section_name, s.class_range FROM events e LEFT JOIN sections s ON s.id = e.section_id WHERE e.id = ?");
     $stmt->bind_param("i", $view_event_id);
     $stmt->execute();
     $event_detail = $stmt->get_result()->fetch_assoc();
     $stmt->close();
+    
+    if ($event_detail) {
+        $event_section_id = isset($event_detail['section_id']) ? intval($event_detail['section_id']) : 0;
+        if ($role === 'student') {
+            $is_registered_for_event = in_array($view_event_id, $registered_events);
+            if ($event_section_id > 0) {
+                if (!$student_section || $event_section_id !== intval($student_section)) {
+                    $event_detail = null;
+                    $_GET['error'] = 'Access denied for this section.';
+                }
+            } elseif (!$is_registered_for_event) {
+                // Legacy event without section: allow only if this student is registered.
+                $event_detail = null;
+                $_GET['error'] = 'Access denied for this event.';
+            }
+        } elseif ($role === 'teacher') {
+            $is_assigned_event = in_array($view_event_id, $teacher_assigned_events);
+            if ($event_section_id > 0) {
+                if (!$teacher_section || $event_section_id !== intval($teacher_section)) {
+                    $event_detail = null;
+                    $_GET['error'] = 'Access denied for this section.';
+                }
+            } elseif (!$is_assigned_event) {
+                // Legacy event without section: allow only if teacher is assigned.
+                $event_detail = null;
+                $_GET['error'] = 'Access denied for this event.';
+            }
+        }
+    }
     
     if ($event_detail) {
         // Get event teachers - with error handling
@@ -165,8 +273,10 @@ if ($view_event_id > 0) {
             }
         }
         
-        // Get student result if event results are published - with error handling
-        if ($role === 'student' && isset($event_detail['is_results_published']) && $event_detail['is_results_published']) {
+        $event_started = strtotime($event_detail['event_date']) <= time();
+
+        // Show results only after event date/time and publish flag
+        if ($role === 'student' && $event_started && isset($event_detail['is_results_published']) && $event_detail['is_results_published']) {
             $result_stmt = $conn->prepare("SELECT marks, remarks FROM event_results WHERE event_id = ? AND student_id = ?");
             if ($result_stmt) {
                 $result_stmt->bind_param("ii", $view_event_id, $user_id);
@@ -593,6 +703,11 @@ if ($view_event_id > 0) {
                 The event registration system is currently being set up. Please check back soon or contact your administrator.
             </div>
         <?php endif; ?>
+        <?php if ($role === 'student' && !$student_section): ?>
+            <div class="alert alert-warning">
+                <i class="fa-solid fa-triangle-exclamation"></i> Your class is not mapped to a section yet. Contact admin to assign section (Little Flower, Dominic Savio, Alphonsa, St. Thomas).
+            </div>
+        <?php endif; ?>
 
         <!-- Admin: Add Event Form -->
         <?php if ($role === 'admin'): ?>
@@ -604,6 +719,17 @@ if ($view_event_id > 0) {
                     <div class="event-form-field full">
                         <label>Event Title</label>
                         <input type="text" name="title" required>
+                    </div>
+                    <div class="event-form-field">
+                        <label>Section</label>
+                        <select name="section_id" required style="width:100%; padding:10px 12px; border:1px solid #ccd7eb; border-radius:8px;">
+                            <option value="">Select section</option>
+                            <?php foreach ($sections as $sec): ?>
+                                <option value="<?php echo (int)$sec['id']; ?>">
+                                    <?php echo htmlspecialchars($sec['section_name'] . ' (' . $sec['class_range'] . ')'); ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
                     </div>
                     <div class="event-form-field">
                         <label>Date & Time</label>
@@ -645,6 +771,10 @@ if ($view_event_id > 0) {
                 </div>
 
                 <div class="detail-meta">
+                    <div class="detail-meta-item">
+                        <label>Section</label>
+                        <value><?php echo htmlspecialchars(($event_detail['section_name'] ?? 'Unassigned') . (!empty($event_detail['class_range']) ? ' (' . $event_detail['class_range'] . ')' : '')); ?></value>
+                    </div>
                     <div class="detail-meta-item">
                         <label>Date & Time</label>
                         <value><?php echo date("l, F j, Y \\a\\t g:i A", strtotime($event_detail['event_date'])); ?></value>
@@ -698,7 +828,8 @@ if ($view_event_id > 0) {
                     </div>
 
                     <!-- Event Results section -->
-                    <?php if ($event_detail['is_results_published'] && $student_result): ?>
+                    <?php $detail_event_started = strtotime($event_detail['event_date']) <= time(); ?>
+                    <?php if ($event_detail['is_results_published'] && $detail_event_started && $student_result): ?>
                         <div class="detail-section">
                             <h4><i class="fa-solid fa-chart-line"></i> Event Results</h4>
                             <div class="results-display">
@@ -716,7 +847,7 @@ if ($view_event_id > 0) {
                                 <?php endif; ?>
                             </div>
                         </div>
-                    <?php elseif ($event_detail['is_results_published']): ?>
+                    <?php elseif ($event_detail['is_results_published'] && $detail_event_started): ?>
                         <div class="detail-section">
                             <h4><i class="fa-solid fa-chart-line"></i> Event Results</h4>
                             <div class="alert alert-info">
@@ -764,6 +895,9 @@ if ($view_event_id > 0) {
                             <div class="event-details">
                                 <h3><?php echo htmlspecialchars($row['title']); ?></h3>
                                 <div class="time"><i class="fa-regular fa-clock"></i> <?php echo date("l, g:i A", strtotime($row['event_date'])); ?></div>
+                                <?php if (!empty($row['section_name'])): ?>
+                                    <div class="time"><i class="fa-solid fa-layer-group"></i> <?php echo htmlspecialchars($row['section_name'] . (!empty($row['class_range']) ? ' (' . $row['class_range'] . ')' : '')); ?></div>
+                                <?php endif; ?>
                                 <?php $status = isset($row['status']) ? strtolower($row['status']) : 'upcoming'; ?>
                                 <span class="badge badge-status"><?php echo ucfirst($status); ?></span>
                                 <?php if ($is_registered && $role === 'student'): ?>
@@ -803,8 +937,9 @@ if ($view_event_id > 0) {
                 <div id="my-events" class="tab-content">
                     <?php if (!empty($registered_events)): ?>
                         <?php 
-                        $registered_result = $conn->query("SELECT e.*, u.username as created_by_name FROM events e 
+                        $registered_result = $conn->query("SELECT e.*, u.username as created_by_name, s.section_name, s.class_range FROM events e 
                                                           LEFT JOIN users u ON e.created_by = u.id 
+                                                          LEFT JOIN sections s ON s.id = e.section_id
                                                           WHERE e.id IN (" . implode(',', $registered_events) . ") 
                                                           ORDER BY e.event_date ASC");
                         ?>
@@ -818,14 +953,18 @@ if ($view_event_id > 0) {
                                     <div class="event-details">
                                         <h3><?php echo htmlspecialchars($row['title']); ?></h3>
                                         <div class="time"><i class="fa-regular fa-clock"></i> <?php echo date("l, g:i A", strtotime($row['event_date'])); ?></div>
+                                        <?php if (!empty($row['section_name'])): ?>
+                                            <div class="time"><i class="fa-solid fa-layer-group"></i> <?php echo htmlspecialchars($row['section_name'] . (!empty($row['class_range']) ? ' (' . $row['class_range'] . ')' : '')); ?></div>
+                                        <?php endif; ?>
                                         <?php $status = isset($row['status']) ? strtolower($row['status']) : 'upcoming'; ?>
                                         <span class="badge badge-status"><?php echo ucfirst($status); ?></span>
                                         <span class="badge badge-registered"><i class="fa-solid fa-check"></i> Registered</span>
                                         
                                         <?php 
-                                        // Check if results are published
+                                        // Check if results are published after event start
                                         $my_result = null;
-                                        if ($row['is_results_published']) {
+                                        $event_started = strtotime($row['event_date']) <= time();
+                                        if ($row['is_results_published'] && $event_started) {
                                             $res_check = $conn->prepare("SELECT marks, remarks, result_status FROM event_results WHERE event_id = ? AND student_id = ?");
                                             $res_check->bind_param("ii", $row['id'], $user_id);
                                             $res_check->execute();
@@ -836,7 +975,7 @@ if ($view_event_id > 0) {
                                         
                                         if ($my_result && $my_result['marks'] !== null) {
                                             echo '<span class="badge" style="background: #d1e7dd; color: #0f5132;"><i class="fa-solid fa-chart-line"></i> Result: ' . $my_result['marks'] . '/100</span>';
-                                        } elseif ($row['is_results_published']) {
+                                        } elseif ($row['is_results_published'] && $event_started) {
                                             echo '<span class="badge" style="background: #fff3cd; color: #664d03;"><i class="fa-solid fa-hourglass-end"></i> Results Published - Awaiting Mark</span>';
                                         }
                                         ?>

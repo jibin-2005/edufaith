@@ -33,20 +33,32 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['publish_results'])) {
         if ($published_check && $published_check['is_results_published']) {
             $error = "Results for this event have already been published. Cannot publish twice.";
         } else {
-            // Update all pending results to published
-            $stmt = $conn->prepare("UPDATE event_results SET result_status = 'published', published_at = NOW(), published_by = ? WHERE event_id = ?");
-            $stmt->bind_param("ii", $user_id, $event_id);
-            if ($stmt->execute()) {
-                $msg = "Event results published successfully!";
-                // Also update events table
-                $update_stmt = $conn->prepare("UPDATE events SET is_results_published = TRUE WHERE id = ?");
-                $update_stmt->bind_param("i", $event_id);
-                $update_stmt->execute();
-                $update_stmt->close();
+            $event_date_stmt = $conn->prepare("SELECT event_date FROM events WHERE id = ?");
+            $event_date_stmt->bind_param("i", $event_id);
+            $event_date_stmt->execute();
+            $event_date_row = $event_date_stmt->get_result()->fetch_assoc();
+            $event_date_stmt->close();
+
+            if (!$event_date_row) {
+                $error = "Event not found.";
+            } elseif (strtotime($event_date_row['event_date']) > time()) {
+                $error = "Results can be published only on or after the event date.";
             } else {
-                $error = "Error publishing results: " . $conn->error;
+                // Update all pending results to published
+                $stmt = $conn->prepare("UPDATE event_results SET result_status = 'published', published_at = NOW(), published_by = ? WHERE event_id = ?");
+                $stmt->bind_param("ii", $user_id, $event_id);
+                if ($stmt->execute()) {
+                    $msg = "Event results published successfully!";
+                    // Also update events table
+                    $update_stmt = $conn->prepare("UPDATE events SET is_results_published = TRUE WHERE id = ?");
+                    $update_stmt->bind_param("i", $event_id);
+                    $update_stmt->execute();
+                    $update_stmt->close();
+                } else {
+                    $error = "Error publishing results: " . $conn->error;
+                }
+                $stmt->close();
             }
-            $stmt->close();
         }
     }
     $verify_stmt->close();
@@ -399,6 +411,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['publish_results'])) {
         <div class="events-grid">
             <?php if (!empty($events)): ?>
                 <?php foreach ($events as $event): ?>
+                    <?php $results_open = strtotime($event['event_date']) <= time(); ?>
                     <div class="event-card">
                         <div style="display: flex; justify-content: space-between; align-items: flex-start;">
                             <div>
@@ -421,6 +434,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['publish_results'])) {
                                 <?php if ($event['is_results_published']): ?>
                                     <span class="badge badge-published">
                                         <i class="fa-solid fa-check"></i> Published
+                                    </span>
+                                <?php elseif (!$results_open): ?>
+                                    <span class="badge" style="background:#f8d7da; color:#842029;">
+                                        <i class="fa-solid fa-lock"></i> Marks locked until event date
                                     </span>
                                 <?php else: ?>
                                     <span class="badge badge-pending">
@@ -519,6 +536,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['publish_results'])) {
                                                             <button
                                                                 type="button"
                                                                 class="btn btn-primary"
+                                                                <?php echo $results_open ? '' : 'disabled title="Marks can be submitted only on or after the event date"'; ?>
                                                                 onclick="saveResult(<?php echo $event['id']; ?>, <?php echo $student['id']; ?>)"
                                                             >
                                                                 Save
@@ -535,16 +553,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['publish_results'])) {
                                         <p style="margin: 0 0 12px 0; color: #0066cc; font-weight: 600;">
                                             <i class="fa-solid fa-info-circle"></i> Ready to Publish
                                         </p>
-                                        <p style="margin: 0 0 15px 0; color: #333; font-size: 14px;">
-                                            Click the button below to publish these results to students. Once published, they will be able to see their marks and remarks.
-                                        </p>
-                                        <form method="POST" style="display: inline;">
-                                            <input type="hidden" name="event_id" value="<?php echo $event['id']; ?>">
-                                            <button type="submit" name="publish_results" class="btn btn-success" 
-                                                    onclick="return confirm('Publish all results for this event? This action cannot be undone.');">
-                                                <i class="fa-solid fa-paper-plane"></i> Publish Results to Students
-                                            </button>
-                                        </form>
+                                        <?php if (!$results_open): ?>
+                                            <p style="margin: 0; color: #842029; font-size: 14px;">
+                                                Results can be published only on or after <?php echo date("F j, Y g:i A", strtotime($event['event_date'])); ?>.
+                                            </p>
+                                        <?php else: ?>
+                                            <p style="margin: 0 0 15px 0; color: #333; font-size: 14px;">
+                                                Click the button below to publish these results to students. Once published, they will be able to see their marks and remarks.
+                                            </p>
+                                            <form method="POST" style="display: inline;">
+                                                <input type="hidden" name="event_id" value="<?php echo $event['id']; ?>">
+                                                <button type="submit" name="publish_results" class="btn btn-success" 
+                                                        onclick="return confirm('Publish all results for this event? This action cannot be undone.');">
+                                                    <i class="fa-solid fa-paper-plane"></i> Publish Results to Students
+                                                </button>
+                                            </form>
+                                        <?php endif; ?>
                                     </div>
                                 <?php else: ?>
                                     <div style="margin-top: 20px; padding: 15px; background: #d1e7dd; border-radius: 6px; border-left: 4px solid var(--success);">

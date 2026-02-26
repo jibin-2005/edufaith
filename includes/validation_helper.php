@@ -5,6 +5,17 @@
  */
 
 class Validator {
+    private static $hasClassesSectionId = null;
+
+    private static function classesHasSectionId($conn) {
+        if (self::$hasClassesSectionId !== null) {
+            return self::$hasClassesSectionId;
+        }
+
+        $check = $conn->query("SHOW COLUMNS FROM classes LIKE 'section_id'");
+        self::$hasClassesSectionId = ($check && $check->num_rows > 0);
+        return self::$hasClassesSectionId;
+    }
     
     /**
      * Sanitize input to prevent XSS.
@@ -387,26 +398,68 @@ class Validator {
      * Get student's section ID
      */
     public static function getStudentSection($conn, $studentId) {
-        $stmt = $conn->prepare("SELECT c.section_id FROM users u 
-                                JOIN classes c ON u.class_id = c.id 
-                                WHERE u.id = ? AND u.role = 'student'");
+        $sql = self::classesHasSectionId($conn)
+            ? "SELECT c.section_id, c.class_name FROM users u JOIN classes c ON u.class_id = c.id WHERE u.id = ? AND u.role = 'student'"
+            : "SELECT NULL AS section_id, c.class_name FROM users u JOIN classes c ON u.class_id = c.id WHERE u.id = ? AND u.role = 'student'";
+        $stmt = $conn->prepare($sql);
+        if (!$stmt) {
+            return null;
+        }
         $stmt->bind_param("i", $studentId);
         $stmt->execute();
         $result = $stmt->get_result()->fetch_assoc();
         $stmt->close();
-        return $result['section_id'] ?? null;
+        if (!empty($result['section_id'])) {
+            return (int)$result['section_id'];
+        }
+        return self::inferSectionFromClassName($result['class_name'] ?? '');
     }
 
     /**
      * Get teacher's section ID
      */
     public static function getTeacherSection($conn, $teacherId) {
-        $stmt = $conn->prepare("SELECT section_id FROM classes WHERE teacher_id = ? LIMIT 1");
+        $sql = self::classesHasSectionId($conn)
+            ? "SELECT section_id, class_name FROM classes WHERE teacher_id = ? ORDER BY id ASC LIMIT 1"
+            : "SELECT NULL AS section_id, class_name FROM classes WHERE teacher_id = ? ORDER BY id ASC LIMIT 1";
+        $stmt = $conn->prepare($sql);
+        if (!$stmt) {
+            return null;
+        }
         $stmt->bind_param("i", $teacherId);
         $stmt->execute();
         $result = $stmt->get_result()->fetch_assoc();
         $stmt->close();
-        return $result['section_id'] ?? null;
+        if (!empty($result['section_id'])) {
+            return (int)$result['section_id'];
+        }
+        return self::inferSectionFromClassName($result['class_name'] ?? '');
+    }
+
+    /**
+     * Infer Sunday School section from class name.
+     * 1-3: Little Flower, 4-6: Dominic Savio, 7-9: Alphonsa, 10-12: St. Thomas
+     */
+    public static function inferSectionFromClassName($className) {
+        $name = strtolower(trim((string)$className));
+        if ($name === '') {
+            return null;
+        }
+
+        if (preg_match('/\b(10|11|12)\b/', $name)) {
+            return 4;
+        }
+        if (preg_match('/\b(7|8|9)\b/', $name)) {
+            return 3;
+        }
+        if (preg_match('/\b(4|5|6)\b/', $name)) {
+            return 2;
+        }
+        if (preg_match('/\b(1|2|3)\b/', $name)) {
+            return 1;
+        }
+
+        return null;
     }
 
     /**

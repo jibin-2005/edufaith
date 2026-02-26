@@ -10,6 +10,7 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'student') {
 }
 
 require '../includes/db.php';
+require '../includes/validation_helper.php';
 
 header('Content-Type: application/json');
 
@@ -24,6 +25,33 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     
     switch ($action) {
         case 'register':
+            $event_stmt = $conn->prepare("SELECT id, event_date, section_id FROM events WHERE id = ?");
+            $event_stmt->bind_param("i", $event_id);
+            $event_stmt->execute();
+            $event_row = $event_stmt->get_result()->fetch_assoc();
+            $event_stmt->close();
+
+            if (!$event_row) {
+                echo json_encode(['success' => false, 'error' => 'Event not found']);
+                exit;
+            }
+
+            $student_section = Validator::getStudentSection($conn, $student_id);
+            if (!$student_section) {
+                echo json_encode(['success' => false, 'error' => 'You are not assigned to any section']);
+                exit;
+            }
+
+            if (intval($event_row['section_id']) !== intval($student_section)) {
+                echo json_encode(['success' => false, 'error' => 'This event belongs to another section']);
+                exit;
+            }
+
+            if (strtotime($event_row['event_date']) < time()) {
+                echo json_encode(['success' => false, 'error' => 'Registration closed. Event date has passed']);
+                exit;
+            }
+
             // Check if already registered
             $check = $conn->query("SELECT id FROM event_registrations WHERE event_id = $event_id AND student_id = $student_id");
             

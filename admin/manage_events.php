@@ -7,11 +7,21 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'admin') {
 require '../includes/db.php';
 require '../includes/validation_helper.php';
 
+$sections = [];
+$sections_result = $conn->query("SELECT id, section_name, class_range FROM sections ORDER BY id");
+if ($sections_result) {
+    while ($row = $sections_result->fetch_assoc()) {
+        $sections[] = $row;
+    }
+}
+
 // Handle Event Creation
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_event'])) {
-    $title = $_POST['title'];
-    $description = $_POST['description'];
-    $event_date = $_POST['event_date'];
+    $title = trim($_POST['title'] ?? '');
+    $description = trim($_POST['description'] ?? '');
+    $event_date_input = trim($_POST['event_date'] ?? '');
+    $event_date = $event_date_input;
+    $section_id = intval($_POST['section_id'] ?? 0);
     
     $errors = [];
     
@@ -21,13 +31,39 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_event'])) {
     $valDesc = Validator::validateDescription($description, 'Description');
     if ($valDesc !== true) $errors[] = $valDesc;
 
-    $valDate = Validator::validateDate($event_date, 'Event Date', 'future_only');
+    $valDate = Validator::validateDate($event_date_input, 'Event Date', 'future_only');
     if ($valDate !== true) $errors[] = $valDate;
+
+    if ($section_id <= 0) {
+        $errors[] = "Please select a section for this event.";
+    } else {
+        $sec_stmt = $conn->prepare("SELECT id FROM sections WHERE id = ?");
+        if ($sec_stmt) {
+            $sec_stmt->bind_param("i", $section_id);
+            $sec_stmt->execute();
+            $sec_exists = $sec_stmt->get_result()->num_rows > 0;
+            $sec_stmt->close();
+            if (!$sec_exists) {
+                $errors[] = "Selected section is invalid.";
+            }
+        }
+    }
+
+    if (empty($errors)) {
+        $event_date = str_replace('T', ' ', $event_date_input);
+        if ($event_date !== '' && strlen($event_date) <= 16) {
+            $event_date .= ':00';
+        }
+
+        if (!Validator::isEventNameUniqueInSection($conn, $title, $section_id)) {
+            $errors[] = "An event with this title already exists in the selected section.";
+        }
+    }
 
     if (empty($errors)) {
         $created_by = $_SESSION['user_id'];
-        $stmt = $conn->prepare("INSERT INTO events (title, event_date, description, created_by, status, is_results_published) VALUES (?, ?, ?, ?, 'upcoming', FALSE)");
-        $stmt->bind_param("sssi", $title, $event_date, $description, $created_by);
+        $stmt = $conn->prepare("INSERT INTO events (title, event_date, description, section_id, created_by, status, is_results_published) VALUES (?, ?, ?, ?, ?, 'upcoming', FALSE)");
+        $stmt->bind_param("sssii", $title, $event_date, $description, $section_id, $created_by);
         if ($stmt->execute()) {
             $msg = "Event created successfully!";
         } else {
@@ -64,6 +100,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['assign_teacher'])) {
     $role = $_POST['role'] ?? 'coordinator';
     
     if ($event_id > 0 && $teacher_id > 0) {
+        $event_section_stmt = $conn->prepare("SELECT section_id FROM events WHERE id = ?");
+        $event_section_stmt->bind_param("i", $event_id);
+        $event_section_stmt->execute();
+        $event_section = $event_section_stmt->get_result()->fetch_assoc()['section_id'] ?? null;
+        $event_section_stmt->close();
+
+        $teacher_section = Validator::getTeacherSection($conn, $teacher_id);
+        if (!$event_section || !$teacher_section || intval($event_section) !== intval($teacher_section)) {
+            $error = "Teacher assignment failed: teacher and event must belong to the same section.";
+        } else {
         $stmt = $conn->prepare("INSERT INTO event_teachers (event_id, teacher_id, role) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE role = ?");
         $stmt->bind_param("iiss", $event_id, $teacher_id, $role, $role);
         if ($stmt->execute()) {
@@ -72,6 +118,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['assign_teacher'])) {
             $error = "Error assigning teacher: " . $conn->error;
         }
         $stmt->close();
+        }
     }
 }
 
@@ -93,20 +140,34 @@ if (isset($_GET['remove_teacher'])) {
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['publish_results'])) {
     $event_id = intval($_POST['event_id']);
     $admin_id = $_SESSION['user_id'];
-    
-    // Update all pending results to published
-    $stmt = $conn->prepare("UPDATE event_results SET result_status = 'published', published_at = NOW(), published_by = ? WHERE event_id = ?");
-    $stmt->bind_param("ii", $admin_id, $event_id);
-    if ($stmt->execute()) {
-        $stmt2 = $conn->prepare("UPDATE events SET is_results_published = TRUE WHERE id = ?");
-        $stmt2->bind_param("i", $event_id);
-        $stmt2->execute();
-        $stmt2->close();
-        $msg = "Event results published successfully!";
+
+    $event_check_stmt = $conn->prepare("SELECT event_date, is_results_published FROM events WHERE id = ?");
+    $event_check_stmt->bind_param("i", $event_id);
+    $event_check_stmt->execute();
+    $event_row = $event_check_stmt->get_result()->fetch_assoc();
+    $event_check_stmt->close();
+
+    if (!$event_row) {
+        $error = "Event not found.";
+    } elseif (!empty($event_row['is_results_published'])) {
+        $error = "Results are already published for this event.";
+    } elseif (strtotime($event_row['event_date']) > time()) {
+        $error = "Results can be published only on or after the event date.";
     } else {
-        $error = "Error publishing results: " . $conn->error;
+        // Update all pending results to published
+        $stmt = $conn->prepare("UPDATE event_results SET result_status = 'published', published_at = NOW(), published_by = ? WHERE event_id = ?");
+        $stmt->bind_param("ii", $admin_id, $event_id);
+        if ($stmt->execute()) {
+            $stmt2 = $conn->prepare("UPDATE events SET is_results_published = TRUE WHERE id = ?");
+            $stmt2->bind_param("i", $event_id);
+            $stmt2->execute();
+            $stmt2->close();
+            $msg = "Event results published successfully!";
+        } else {
+            $error = "Error publishing results: " . $conn->error;
+        }
+        $stmt->close();
     }
-    $stmt->close();
 }
 
 // Handle Event Deletion
@@ -143,7 +204,7 @@ $event_teachers_assigned = [];
 $event_results = [];
 
 if ($view_event_id > 0) {
-    $stmt = $conn->prepare("SELECT * FROM events WHERE id = ?");
+    $stmt = $conn->prepare("SELECT e.*, s.section_name, s.class_range FROM events e LEFT JOIN sections s ON s.id = e.section_id WHERE e.id = ?");
     $stmt->bind_param("i", $view_event_id);
     $stmt->execute();
     $event_detail = $stmt->get_result()->fetch_assoc();
@@ -201,8 +262,8 @@ if (!$schema_check || $schema_check->num_rows === 0) {
 }
 
 
-// Fetch all upcoming events for main list
-$result = $conn->query("SELECT * FROM events ORDER BY event_date ASC");
+// Fetch all events for main list
+$result = $conn->query("SELECT e.*, s.section_name, s.class_range FROM events e LEFT JOIN sections s ON s.id = e.section_id ORDER BY event_date ASC");
 $all_teachers = $conn->query("SELECT id, username, email FROM users WHERE role = 'teacher' ORDER BY username");
 ?>
 <!DOCTYPE html>
@@ -264,7 +325,29 @@ $all_teachers = $conn->query("SELECT id, username, email FROM users WHERE role =
         th, td { padding: 12px; text-align: left; border-bottom: 1px solid #eee; }
         th { background: #f0f5ff; font-weight: bold; color: var(--events-heading); }
         tr:hover { background: #f9f9f9; }
-        .btn-action { padding: 6px 12px; margin: 2px; font-size: 12px; }
+        .btn-action {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            min-width: 88px;
+            padding: 8px 12px;
+            margin: 0;
+            font-size: 13px;
+            line-height: 1;
+            text-decoration: none;
+            border-radius: 8px;
+            white-space: nowrap;
+        }
+        .actions-cell {
+            min-width: 120px;
+        }
+        .actions-stack {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            align-items: flex-start;
+        }
         .badge { display: inline-block; padding: 4px 10px; border-radius: 999px; font-size: 12px; font-weight: bold; }
         .badge-upcoming { background: #cfe2ff; color: #084298; }
         .badge-ongoing { background: #fff3cd; color: #664d03; }
@@ -412,6 +495,10 @@ $all_teachers = $conn->query("SELECT id, username, email FROM users WHERE role =
                 <!-- Event Information -->
                 <div class="detail-section">
                     <div class="info-grid">
+                        <div class="info-item">
+                            <label>Section</label>
+                            <value><?php echo htmlspecialchars(($event_detail['section_name'] ?? 'Unassigned') . (!empty($event_detail['class_range']) ? ' (' . $event_detail['class_range'] . ')' : '')); ?></value>
+                        </div>
                         <div class="info-item">
                             <label>Event Date & Time</label>
                             <value><?php echo date("M j, Y h:i A", strtotime($event_detail['event_date'])); ?></value>
@@ -690,6 +777,17 @@ $all_teachers = $conn->query("SELECT id, username, email FROM users WHERE role =
                         <input type="text" name="title" required>
                     </div>
                     <div class="form-group">
+                        <label>Section</label>
+                        <select name="section_id" required>
+                            <option value="">Select section</option>
+                            <?php foreach ($sections as $sec): ?>
+                                <option value="<?php echo (int)$sec['id']; ?>">
+                                    <?php echo htmlspecialchars($sec['section_name'] . ' (' . $sec['class_range'] . ')'); ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                    <div class="form-group">
                         <label>Date & Time</label>
                         <input type="datetime-local" name="event_date" required min="<?php echo date('Y-m-d\TH:i'); ?>">
                     </div>
@@ -709,6 +807,7 @@ $all_teachers = $conn->query("SELECT id, username, email FROM users WHERE role =
                         <thead>
                             <tr>
                                 <th>Title</th>
+                                <th>Section</th>
                                 <th>Date & Time</th>
                                 <th>Status</th>
                                 <th>Registrations</th>
@@ -733,6 +832,7 @@ $all_teachers = $conn->query("SELECT id, username, email FROM users WHERE role =
                             ?>
                             <tr>
                                 <td><?php echo htmlspecialchars($row['title']); ?></td>
+                                <td><?php echo htmlspecialchars(($row['section_name'] ?? 'Unassigned') . (!empty($row['class_range']) ? ' (' . $row['class_range'] . ')' : '')); ?></td>
                                 <td><?php echo date("M j, Y h:i A", strtotime($row['event_date'])); ?></td>
                                 <td><span class="badge badge-<?php echo $status; ?>"><?php echo ucfirst($status); ?></span></td>
                                 <td>
@@ -750,9 +850,11 @@ $all_teachers = $conn->query("SELECT id, username, email FROM users WHERE role =
                                         <?php echo $is_published ? 'Yes' : 'No'; ?>
                                     </span>
                                 </td>
-                                <td>
-                                    <a href="?view=<?php echo $row['id']; ?>" class="btn-secondary btn-action"><i class="fa-solid fa-eye"></i> Details</a>
-                                    <a href="?delete=<?php echo $row['id']; ?>" class="btn-danger btn-action" onclick="return confirm('Delete this event?');"><i class="fa-solid fa-trash"></i> Delete</a>
+                                <td class="actions-cell">
+                                    <div class="actions-stack">
+                                        <a href="?view=<?php echo $row['id']; ?>" class="btn-secondary btn-action"><i class="fa-solid fa-eye"></i> Details</a>
+                                        <a href="?delete=<?php echo $row['id']; ?>" class="btn-danger btn-action" onclick="return confirm('Delete this event?');"><i class="fa-solid fa-trash"></i> Delete</a>
+                                    </div>
                                 </td>
                             </tr>
                             <?php endwhile; ?>
@@ -764,31 +866,6 @@ $all_teachers = $conn->query("SELECT id, username, email FROM users WHERE role =
             </div>
         <?php endif; ?>
     </div>
-                        
-                    <div class="form-group">
-                        <label for="marks">Marks (0-100) *</label>
-                        <input type="number" id="marks" name="marks" min="0" max="100" required style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
-                        <small style="color: #666;">Leave blank if result not available yet</small>
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="remarks">Remarks/Comments</label>
-                        <textarea id="remarks" name="remarks" rows="4" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;"></textarea>
-                    </div>
-                    
-                    <div id="resultMessage" style="margin-top: 10px; padding: 10px; border-radius: 4px; display: none;"></div>
-                </form>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn-secondary" onclick="closeResultModal()">Cancel</button>
-                <button type="button" class="btn-success" onclick="saveResult()">
-                    <i class="fa-solid fa-save"></i> Save Result
-                </button>
-            </div>
-        </div>
-    </div>
-
-    
     <script src="../js/validator.js"></script>
     <script>
         // Tab switching functionality

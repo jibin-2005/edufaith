@@ -1,5 +1,5 @@
 -- Sunday School Sections Setup
--- 4 Sections: Little Flower, Dominic Savio, Alphonsa, St Thomas
+-- 4 Sections: Little Flower, Dominic Savio, Alphonsa, St. Thomas
 
 -- Create sections table
 CREATE TABLE IF NOT EXISTS sections (
@@ -15,8 +15,11 @@ INSERT INTO sections (section_name, class_range, description) VALUES
 ('Little Flower', 'Class 1 to 3', 'Primary section for younger students'),
 ('Dominic Savio', 'Class 4 to 6', 'Middle section for intermediate students'),
 ('Alphonsa', 'Class 7 to 9', 'Junior section for pre-high school students'),
-('St Thomas', 'Class 10 to 12', 'Senior section for high school students')
+('St. Thomas', 'Class 10 to 12', 'Senior section for high school students')
 ON DUPLICATE KEY UPDATE section_name=section_name;
+
+-- Backward compatibility: normalize older "St Thomas" name
+UPDATE sections SET section_name = 'St. Thomas' WHERE section_name = 'St Thomas';
 
 -- Add section_id to classes table if not exists
 ALTER TABLE classes 
